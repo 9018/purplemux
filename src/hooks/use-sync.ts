@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import useWorkspaceStore from '@/hooks/use-workspace-store';
 import { useLayoutStore, collectPanes } from '@/hooks/use-layout';
 import useTabStore from '@/hooks/use-tab-store';
+import useWorkspaceLayoutStore from '@/hooks/use-workspace-layout-store';
 import type { ILayoutData } from '@/types/terminal';
 
 const RECONNECT_DELAY = 3000;
@@ -108,6 +109,7 @@ const useSync = () => {
                 .then((res) => (res.ok ? res.json() : null))
                 .then((layout: ILayoutData | null) => {
                   if (!layout?.root) return;
+                  useWorkspaceLayoutStore.getState().setLayout(data.workspaceId, layout);
                   const tabIds = collectPanes(layout.root).flatMap((p) => p.tabs.map((t) => t.id));
                   useTabStore.getState().setTabOrder(data.workspaceId, tabIds);
                 })

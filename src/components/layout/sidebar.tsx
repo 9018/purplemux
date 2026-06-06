@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import type { IWorkspace, IWorkspaceGroup } from '@/types/terminal';
+import type { ITab, IWorkspace, IWorkspaceGroup } from '@/types/terminal';
 import useWorkspaceStore from '@/hooks/use-workspace-store';
 import WorkspaceItem from '@/components/features/workspace/workspace-item';
 import WorkspaceGroupHeader from '@/components/features/workspace/workspace-group-header';
@@ -43,6 +43,7 @@ const CheatSheetDialog = dynamic(
 );
 import { useSelectWorkspace } from '@/hooks/use-sidebar-actions';
 import useSidebarItems from '@/hooks/use-sidebar-items';
+import useWorkspaceLayouts from '@/hooks/use-workspace-layouts';
 import useWebviewStore from '@/hooks/use-webview-store';
 import IconRenderer from '@/components/features/settings/icon-renderer';
 import SidebarRateLimits from '@/components/layout/sidebar-rate-limits';
@@ -77,6 +78,14 @@ const Sidebar = () => {
   const selectWorkspace = useSelectWorkspace();
   const { items: sidebarItems } = useSidebarItems();
   const activeWebviewId = useWebviewStore((s) => s.activeId);
+  const workspaceLayouts = useWorkspaceLayouts();
+  const workspaceTabs = useMemo(() => {
+    const map: Record<string, ITab[]> = {};
+    for (const [wsId, panes] of Object.entries(workspaceLayouts)) {
+      map[wsId] = panes.flatMap((pane) => [...pane.tabs].sort((a, b) => a.order - b.order));
+    }
+    return map;
+  }, [workspaceLayouts]);
 
   const settingsOpen = useWorkspaceStore((s) => s.isSettingsDialogOpen);
   const setSettingsOpen = useWorkspaceStore((s) => s.setSettingsDialogOpen);
@@ -401,6 +410,7 @@ const Sidebar = () => {
           isDeleting={deletingIds.has(ws.id)}
           shortcutLabel={flatIdx < 8 ? `⌘${flatIdx + 1}` : flatIdx === workspaces.length - 1 ? '⌘9' : undefined}
           showShortcut={showShortcuts}
+          tabs={workspaceTabs[ws.id]}
           onSelect={selectWorkspace}
           onRename={handleRename}
           onDelete={handleDeleteRequest}

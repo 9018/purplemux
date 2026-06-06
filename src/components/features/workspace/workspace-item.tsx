@@ -12,7 +12,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import type { IWorkspace } from '@/types/terminal';
+import type { ITab, IWorkspace } from '@/types/terminal';
 import useTabStore, { selectWorkspacePortsLabel } from '@/hooks/use-tab-store';
 import useWorkspaceStore from '@/hooks/use-workspace-store';
 import useInlineEdit from '@/hooks/use-inline-edit';
@@ -24,6 +24,7 @@ interface IWorkspaceItemProps {
   isDeleting: boolean;
   shortcutLabel?: string;
   showShortcut: boolean;
+  tabs?: ITab[];
   onSelect: (workspaceId: string) => void;
   onRename: (workspaceId: string, name: string) => void;
   onDelete: (workspaceId: string) => void;
@@ -35,6 +36,7 @@ const WorkspaceItem = ({
   isDeleting,
   shortcutLabel,
   showShortcut,
+  tabs,
   onSelect,
   onRename,
   onDelete,
@@ -138,7 +140,7 @@ const WorkspaceItem = ({
             {portsLabel}
           </span>
         )}
-        <WorkspaceStatusIndicator workspaceId={workspace.id} />
+        <WorkspaceStatusIndicator workspaceId={workspace.id} tabs={tabs} />
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={startEditing}>
