@@ -430,32 +430,52 @@ const ThemeGrid = ({
   </div>
 );
 
+const KEY_BAR_MODES = ['auto', 'always', 'never'] as const;
+
 const TerminalTab = () => {
   const t = useTranslations('settings.terminal');
   const tc = useTranslations('common');
   const { mode, themeIds, setTerminalTheme, themes } = useTerminalTheme();
+  const keyBarMode = useConfigStore((s) => s.terminalKeyBar);
+  const setKeyBarMode = useConfigStore((s) => s.setTerminalKeyBar);
 
   const darkThemes = themes.filter((th) => th.variant === 'dark');
   const lightThemes = themes.filter((th) => th.variant === 'light');
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-medium">{t('theme')}</p>
-        <p className="text-sm text-muted-foreground">{t('themeDescription')}</p>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium">{t('theme')}</p>
+          <p className="text-sm text-muted-foreground">{t('themeDescription')}</p>
+        </div>
+        <Tabs defaultValue={mode}>
+          <TabsList>
+            <TabsTrigger value="dark">{tc('dark')}</TabsTrigger>
+            <TabsTrigger value="light">{tc('light')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dark" className="mt-3">
+            <ThemeGrid list={darkThemes} selectedId={themeIds.dark} onSelect={(id) => setTerminalTheme('dark', id)} />
+          </TabsContent>
+          <TabsContent value="light" className="mt-3">
+            <ThemeGrid list={lightThemes} selectedId={themeIds.light} onSelect={(id) => setTerminalTheme('light', id)} />
+          </TabsContent>
+        </Tabs>
       </div>
-      <Tabs defaultValue={mode}>
-        <TabsList>
-          <TabsTrigger value="dark">{tc('dark')}</TabsTrigger>
-          <TabsTrigger value="light">{tc('light')}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dark" className="mt-3">
-          <ThemeGrid list={darkThemes} selectedId={themeIds.dark} onSelect={(id) => setTerminalTheme('dark', id)} />
-        </TabsContent>
-        <TabsContent value="light" className="mt-3">
-          <ThemeGrid list={lightThemes} selectedId={themeIds.light} onSelect={(id) => setTerminalTheme('light', id)} />
-        </TabsContent>
-      </Tabs>
+
+      <div className="flex flex-col gap-3 border-t pt-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-medium">{t('keyBar')}</p>
+          <p className="text-sm text-muted-foreground">{t('keyBarDescription')}</p>
+        </div>
+        <ButtonGroup>
+          {KEY_BAR_MODES.map((m) => (
+            <Button key={m} variant={keyBarMode === m ? 'default' : 'outline'} size="sm" onClick={() => setKeyBarMode(m)}>
+              {t(`keyBarOptions.${m}`)}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </div>
     </div>
   );
 };

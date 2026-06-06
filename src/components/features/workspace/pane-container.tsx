@@ -13,7 +13,10 @@ import useTerminalWebSocket from '@/hooks/use-terminal-websocket';
 import useTabMetadataStore from '@/hooks/use-tab-metadata-store';
 import { useLayoutStore } from '@/hooks/use-layout';
 import useConfigStore, { type TGitAskProvider } from '@/hooks/use-config-store';
+import useIsMobileDevice from '@/hooks/use-is-mobile-device';
 import { resolveLineHeight } from '@/lib/terminal-line-height';
+import { toCtrlChar } from '@/lib/terminal-keys';
+import TerminalKeyBar from '@/components/features/workspace/terminal-key-bar';
 import { useShallow } from 'zustand/react/shallow';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
@@ -135,7 +138,33 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   const configFontSize = useConfigStore((s) => s.fontSize);
   const configLineHeight = useConfigStore((s) => s.lineHeight);
   const configLineHeightCustom = useConfigStore((s) => s.lineHeightCustom);
+  const keyBarMode = useConfigStore((s) => s.terminalKeyBar);
+  const isTouchDevice = useIsMobileDevice();
   const claudeShowTerminal = useConfigStore((s) => s.claudeShowTerminal);
+
+  const [ctrlArmed, setCtrlArmed] = useState(false);
+  const [shiftArmed, setShiftArmed] = useState(false);
+  const ctrlArmedRef = useRef(false);
+  const shiftArmedRef = useRef(false);
+  useEffect(() => {
+    ctrlArmedRef.current = ctrlArmed;
+  }, [ctrlArmed]);
+  useEffect(() => {
+    shiftArmedRef.current = shiftArmed;
+  }, [shiftArmed]);
+
+  const applyArmedModifier = useCallback((data: string): string => {
+    if (data.length !== 1) return data;
+    if (ctrlArmedRef.current) {
+      setCtrlArmed(false);
+      return toCtrlChar(data) ?? data;
+    }
+    if (shiftArmedRef.current) {
+      setShiftArmed(false);
+      return data.toUpperCase();
+    }
+    return data;
+  }, []);
   const effectiveTerminalCollapsed = activeTab?.terminalCollapsed ?? !claudeShowTerminal;
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [sessionSwitching, setSessionSwitching] = useState(false);
@@ -386,7 +415,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     fontSize: (TERMINAL_FONT_SIZES[configFontSize] ?? TERMINAL_FONT_SIZES.normal)[isAgentPanel ? 'claudeCode' : 'normal'],
     lineHeight: resolveLineHeight(configLineHeight, configLineHeightCustom),
     onInput: (data) => {
-      wsActionsRef.current.sendStdin(data);
+      wsActionsRef.current.sendStdin(applyArmedModifier(data));
     },
     onResize: (cols, rows) => wsActionsRef.current.sendResize(cols, rows),
     onTitleChange: (title) => {
@@ -1059,6 +1088,11 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     !noTabs &&
     (!isReady || !hasEverConnected);
 
+  const showKeyBar =
+    activePanelType === 'terminal' &&
+    !noTabs &&
+    (keyBarMode === 'always' || (keyBarMode === 'auto' && isTouchDevice));
+
   return (
     <div
       className={cn(
@@ -1289,6 +1323,15 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   isAgentPanel && 'py-0 pl-2 pr-0.5',
                 )}
               />
+              {showKeyBar && (
+                <TerminalKeyBar
+                  sendStdin={sendStdin}
+                  ctrlActive={ctrlArmed}
+                  shiftActive={shiftArmed}
+                  setCtrlActive={setCtrlArmed}
+                  setShiftActive={setShiftArmed}
+                />
+              )}
             </div>
           </Panel>
         </Group>

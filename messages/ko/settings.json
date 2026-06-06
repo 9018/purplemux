@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "터미널 테마",
-    "themeDescription": "모드별 터미널 색상 테마를 선택합니다."
+    "themeDescription": "모드별 터미널 색상 테마를 선택합니다.",
+    "keyBar": "단축키 바",
+    "keyBarDescription": "터미널 아래에 화면 키 바(Tab, Esc, Ctrl, 방향키)를 표시합니다. 터치 기기에서 유용합니다.",
+    "keyBarOptions": {
+      "auto": "자동",
+      "always": "항상",
+      "never": "안 함"
+    }
   },
   "editor": {
     "preset": "에디터",

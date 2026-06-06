@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "Tema del terminal",
-    "themeDescription": "Selecciona los temas de color del terminal para cada modo."
+    "themeDescription": "Selecciona los temas de color del terminal para cada modo.",
+    "keyBar": "Barra de teclas rápidas",
+    "keyBarDescription": "Muestra una barra de teclas en pantalla (Tab, Esc, Ctrl, flechas) bajo la terminal; útil en dispositivos táctiles.",
+    "keyBarOptions": {
+      "auto": "Automático",
+      "always": "Siempre",
+      "never": "Nunca"
+    }
   },
   "editor": {
     "preset": "Editor",

@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "Tema do Terminal",
-    "themeDescription": "Selecione temas de cores do terminal para cada modo."
+    "themeDescription": "Selecione temas de cores do terminal para cada modo.",
+    "keyBar": "Barra de teclas de atalho",
+    "keyBarDescription": "Mostra uma barra de teclas na tela (Tab, Esc, Ctrl, setas) abaixo do terminal — útil em dispositivos de toque.",
+    "keyBarOptions": {
+      "auto": "Automático",
+      "always": "Sempre",
+      "never": "Nunca"
+    }
   },
   "editor": {
     "preset": "Editor",

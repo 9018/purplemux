@@ -3,39 +3,19 @@ import { SendHorizontal } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { CTRL_TOGGLE, SHIFT_TOGGLE, TERMINAL_KEYS, type IKeyDef } from '@/lib/terminal-keys';
 
 interface IMobileTerminalToolbarProps {
   sendStdin: (data: string) => void;
   terminalConnected: boolean;
 }
 
-interface IKeyDef {
-  label: string;
-  value: string;
-  nerd?: boolean;
-  rotate?: boolean;
-}
-
-const CTRL_TOGGLE = '__CTRL__';
-const SHIFT_TOGGLE = '__SHIFT__';
 const LINE_HEIGHT = 20;
 const PADDING_Y = 16;
 const MAX_ROWS = 3;
 const NERD_FONT_STYLE = { fontFamily: 'MesloLGLDZ, monospace' } as const;
 
-const KEYS: IKeyDef[] = [
-  { label: 'Tab', value: '\t' },
-  { label: 'Esc', value: '\x1b' },
-  { label: 'Ctrl', value: CTRL_TOGGLE },
-  { label: 'Shift', value: SHIFT_TOGGLE },
-  { label: '\u{f17a5}', value: '\r', nerd: true },
-  { label: '\u{f005d}', value: '\x1b[A', nerd: true },
-  { label: '\u{f0045}', value: '\x1b[B', nerd: true },
-  { label: '\u{f004d}', value: '\x1b[D', nerd: true },
-  { label: '\u{f0054}', value: '\x1b[C', nerd: true },
-  { label: '\u{f0374}', value: '|', nerd: true, rotate: true },
-  { label: '\u{f0725}', value: '~', nerd: true },
-];
+const KEYS = TERMINAL_KEYS;
 
 const MobileTerminalToolbar = ({ sendStdin, terminalConnected }: IMobileTerminalToolbarProps) => {
   const t = useTranslations('mobile');

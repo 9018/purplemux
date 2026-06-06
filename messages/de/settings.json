@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "Terminal-Theme",
-    "themeDescription": "Wähle Terminal-Farbthemen für jeden Modus."
+    "themeDescription": "Wähle Terminal-Farbthemen für jeden Modus.",
+    "keyBar": "Tastenleiste",
+    "keyBarDescription": "Zeigt eine Bildschirm-Tastenleiste (Tab, Esc, Ctrl, Pfeile) unter dem Terminal an – praktisch auf Touchgeräten.",
+    "keyBarOptions": {
+      "auto": "Automatisch",
+      "always": "Immer",
+      "never": "Nie"
+    }
   },
   "editor": {
     "preset": "Editor",

@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "Terminal Teması",
-    "themeDescription": "Her mod için terminal renk temalarını seçin."
+    "themeDescription": "Her mod için terminal renk temalarını seçin.",
+    "keyBar": "Kısayol Tuş Çubuğu",
+    "keyBarDescription": "Terminalin altında ekran tuş çubuğu (Tab, Esc, Ctrl, oklar) gösterir — dokunmatik cihazlarda kullanışlıdır.",
+    "keyBarOptions": {
+      "auto": "Otomatik",
+      "always": "Her zaman",
+      "never": "Asla"
+    }
   },
   "editor": {
     "preset": "Editör",

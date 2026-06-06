@@ -35,6 +35,7 @@ export interface IConfigData {
   fontSize?: string;
   lineHeight?: string;
   lineHeightCustom?: number;
+  terminalKeyBar?: 'auto' | 'always' | 'never';
   systemResourcesEnabled?: boolean;
   networkAccess?: TNetworkAccess;
   updatedAt: string;

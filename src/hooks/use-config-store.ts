@@ -8,6 +8,7 @@ export type { TToastPosition } from '@/lib/toast-position';
 export type { TGitAskProvider, TNoteSummaryProvider } from '@/lib/config-store';
 
 export type TNetworkAccess = 'localhost' | 'tailscale' | 'all';
+export type TTerminalKeyBar = 'auto' | 'always' | 'never';
 
 export const DEFAULT_TOAST_DURATION = 10000;
 export const DEFAULT_TOAST_POSITION_DESKTOP: TToastPosition = 'top-right';
@@ -33,6 +34,7 @@ export interface IConfigInitialData {
   fontSize?: string;
   lineHeight?: string;
   lineHeightCustom?: number;
+  terminalKeyBar?: TTerminalKeyBar;
   systemResourcesEnabled?: boolean;
   networkAccess?: TNetworkAccess;
   hostEnvLocked?: boolean;
@@ -57,6 +59,7 @@ interface IConfigState {
   fontSize: string;
   lineHeight: string;
   lineHeightCustom: number;
+  terminalKeyBar: TTerminalKeyBar;
   systemResourcesEnabled: boolean;
   networkAccess: TNetworkAccess;
   hostEnvLocked: boolean;
@@ -80,6 +83,7 @@ interface IConfigState {
   setFontSize: (fontSize: string) => void;
   setLineHeight: (lineHeight: string) => void;
   setLineHeightCustom: (value: number) => void;
+  setTerminalKeyBar: (value: TTerminalKeyBar) => void;
   setSystemResourcesEnabled: (enabled: boolean) => void;
   setNetworkAccess: (value: TNetworkAccess) => void;
 }
@@ -102,6 +106,7 @@ const initialConfig = {
   fontSize: 'normal',
   lineHeight: 'normal',
   lineHeightCustom: DEFAULT_LINE_HEIGHT,
+  terminalKeyBar: 'auto' as TTerminalKeyBar,
   systemResourcesEnabled: false,
   networkAccess: 'all' as TNetworkAccess,
   hostEnvLocked: false,
@@ -136,6 +141,7 @@ const useConfigStore = create<IConfigState>((set, get) => ({
   fontSize: initialConfig.fontSize,
   lineHeight: initialConfig.lineHeight,
   lineHeightCustom: initialConfig.lineHeightCustom,
+  terminalKeyBar: initialConfig.terminalKeyBar,
   systemResourcesEnabled: initialConfig.systemResourcesEnabled,
   networkAccess: initialConfig.networkAccess,
   hostEnvLocked: initialConfig.hostEnvLocked,
@@ -160,6 +166,7 @@ const useConfigStore = create<IConfigState>((set, get) => ({
       fontSize: data.fontSize ?? 'normal',
       lineHeight: data.lineHeight ?? 'normal',
       lineHeightCustom: data.lineHeightCustom ?? DEFAULT_LINE_HEIGHT,
+      terminalKeyBar: data.terminalKeyBar ?? 'auto',
       systemResourcesEnabled: data.systemResourcesEnabled ?? false,
       networkAccess: data.networkAccess ?? 'all',
       hostEnvLocked: data.hostEnvLocked ?? false,
@@ -260,6 +267,12 @@ const useConfigStore = create<IConfigState>((set, get) => ({
     if (get().lineHeightCustom === value) return;
     set({ lineHeightCustom: value });
     saveConfig({ lineHeightCustom: value });
+  },
+
+  setTerminalKeyBar: (value) => {
+    if (get().terminalKeyBar === value) return;
+    set({ terminalKeyBar: value });
+    saveConfig({ terminalKeyBar: value });
   },
 
   setSystemResourcesEnabled: (enabled) => {

@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "Terminal Theme",
-    "themeDescription": "Select terminal color themes for each mode."
+    "themeDescription": "Select terminal color themes for each mode.",
+    "keyBar": "Shortcut Key Bar",
+    "keyBarDescription": "Show an on-screen key bar (Tab, Esc, Ctrl, arrows) below the terminal — handy on touch devices.",
+    "keyBarOptions": {
+      "auto": "Auto",
+      "always": "Always",
+      "never": "Never"
+    }
   },
   "editor": {
     "preset": "Editor",

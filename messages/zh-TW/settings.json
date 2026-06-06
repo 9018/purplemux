@@ -46,7 +46,14 @@
   },
   "terminal": {
     "theme": "終端機主題",
-    "themeDescription": "為各模式選擇終端機色彩主題。"
+    "themeDescription": "為各模式選擇終端機色彩主題。",
+    "keyBar": "快捷鍵列",
+    "keyBarDescription": "在終端機下方顯示螢幕按鍵列（Tab、Esc、Ctrl、方向鍵），在觸控裝置上很方便。",
+    "keyBarOptions": {
+      "auto": "自動",
+      "always": "一律顯示",
+      "never": "永不"
+    }
   },
   "editor": {
     "preset": "編輯器",

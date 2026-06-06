@@ -7,7 +7,7 @@ import { isValidEditorPreset } from '@/lib/editor-url';
 import { isValidToastPosition } from '@/lib/toast-position';
 
 const ALLOWED_FIELDS: (keyof Omit<IConfigData, 'updatedAt' | 'authSecret'>)[] = [
-  'appTheme', 'terminalTheme', 'customCSS', 'dangerouslySkipPermissions', 'claudeShowTerminal', 'gitAskProvider', 'noteSummaryProvider', 'editorUrl', 'editorPreset', 'authPassword', 'notificationsEnabled', 'toastOnCompleteEnabled', 'toastDuration', 'toastPositionDesktop', 'toastPositionMobile', 'locale', 'fontSize', 'lineHeight', 'lineHeightCustom', 'systemResourcesEnabled', 'networkAccess',
+  'appTheme', 'terminalTheme', 'customCSS', 'dangerouslySkipPermissions', 'claudeShowTerminal', 'gitAskProvider', 'noteSummaryProvider', 'editorUrl', 'editorPreset', 'authPassword', 'notificationsEnabled', 'toastOnCompleteEnabled', 'toastDuration', 'toastPositionDesktop', 'toastPositionMobile', 'locale', 'fontSize', 'lineHeight', 'lineHeightCustom', 'terminalKeyBar', 'systemResourcesEnabled', 'networkAccess',
 ];
 
 const NETWORK_ACCESS_VALUES = ['localhost', 'tailscale', 'all'] as const;
