@@ -226,6 +226,9 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, lineHeight = DEFAULT
       });
 
       terminal.attachCustomKeyEventHandler((event) => {
+        // IME 조합 단계의 keydown(keyCode 229)은 가로채지 않는다. 같은 키가 조합용으로 한 번,
+        // 실제 키로 한 번 들어오므로 실제 키만 처리해 중복 전송(단어 2칸 이동 등)을 막는다.
+        if (event.isComposing || event.keyCode === 229) return true;
         // macOptionIsMeta가 이중 ESC를 보내는 키만 직접 매핑
         if (event.altKey && event.type === 'keydown') {
           const seq: Record<string, string> = {
@@ -234,6 +237,10 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, lineHeight = DEFAULT
             Backspace: '\x1b\x7f',
           };
           if (seq[event.code]) {
+            // preventDefault로 hidden textarea의 네이티브 단어 단위 커서 이동을 막는다.
+            // 막지 않으면 IME 조합 중 캐럿이 textarea 앞으로 이동해 xterm CompositionHelper의
+            // "조합은 항상 끝에서 일어난다" 가정이 깨지고 이전 입력이 반복 전송된다.
+            event.preventDefault();
             callbacksRef.current.onInput?.(seq[event.code]);
             return false;
           }
