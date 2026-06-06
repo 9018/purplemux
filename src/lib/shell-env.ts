@@ -29,6 +29,13 @@ const FORCED_OVERRIDES: Record<string, string> = {
   COLORTERM: 'truecolor',
 };
 
+// 로그인 셸은 자기 rc 체인으로 PATH를 처음부터 빌드한다. resolved PATH(앱이 도구를
+// 찾으려고 미리 합성한 값)를 주입하면, asdf/uv 등의 idempotent PATH 가드가 "이미 있네"
+// 하고 재배치를 건너뛰어 실제 터미널과 순서가 어긋난다(shim이 standalone보다 앞섬).
+// 따라서 펜 셸에는 최소 floor만 주고 셸이 직접 쌓게 한다. macOS는 path_helper가, Linux는
+// /etc/profile이 이 위에 base를 보정한다.
+const LOGIN_SHELL_BASE_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+
 const collectShellEnv = (): Record<string, string> => {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(PRISTINE_ENV)) {
@@ -46,8 +53,13 @@ const shQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
 export const defaultShell = (): string =>
   PRISTINE_ENV.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
 
+// 사용자 펜 셸을 띄우는 유일한 경로(tmux.ts createSession). env -i로 tmux 서버가 캐시한
+// 환경을 전부 지우므로 펜 셸 env는 여기서만 결정된다. PATH는 resolved 값 대신 floor를 줘서
+// 셸이 실제 터미널과 동일하게 rebuild하도록 한다. 새 펜 생성 경로를 추가할 때도 반드시 이
+// 함수를 거쳐야 한다 — split-window 등을 env -i 없이 직접 호출하면 서버 env(resolved PATH)를
+// 상속해 순서 문제가 재발한다.
 export const buildShellLaunchCommand = (): string => {
-  const env = collectShellEnv();
+  const env = { ...collectShellEnv(), PATH: LOGIN_SHELL_BASE_PATH };
   const envArgs = Object.entries(env)
     .map(([k, v]) => `${k}=${shQuote(v)}`)
     .join(' ');
