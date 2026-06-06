@@ -1,7 +1,14 @@
 nodeLinker: hoisted
-onlyBuiltDependencies:
-  - electron
-  - node-pty
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
+  electron: true
+  electron-winstaller: false
+  esbuild: false
+  msw: false
+  node-pty: true
+  sharp: false
+  unrs-resolver: false
 overrides:
   hono: '>=4.12.18'
   '@hono/node-server': '>=1.19.13'
