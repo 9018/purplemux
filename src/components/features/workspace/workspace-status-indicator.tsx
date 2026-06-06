@@ -3,6 +3,7 @@ import { GitCompareArrows, Globe } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import useTabStore, { selectTabDisplayStatus } from '@/hooks/use-tab-store';
 import ProcessIcon from '@/components/icons/process-icon';
+import Spinner from '@/components/ui/spinner';
 import type { TTabDisplayStatus, TTerminalStatus } from '@/types/status';
 import type { ITab, TPanelType } from '@/types/terminal';
 
@@ -16,7 +17,7 @@ const DotByStatus = ({ status, panelType, terminalStatus, process }: { status: T
 
   if (panelType === 'claude-code' || panelType === 'codex-cli') {
     if (status === 'busy') {
-      inner = <span className="h-2 w-2 rounded-full bg-ui-blue animate-pulse" aria-hidden="true" />;
+      inner = <Spinner className="h-2 w-2 text-muted-foreground" />;
     } else if (status === 'ready-for-review') {
       inner = <span className="h-2 w-2 rounded-full bg-claude-active animate-pulse" aria-hidden="true" />;
     } else if (status === 'needs-input') {
