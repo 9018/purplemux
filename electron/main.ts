@@ -45,9 +45,12 @@ interface IWindowState {
 
 interface IAppConfig {
   server?: IServerConfig;
+  recentRemoteUrls?: string[];
   windowState?: IWindowState;
   appTheme?: string;
 }
+
+const MAX_RECENT_REMOTE_URLS = 10;
 
 const CONFIG_DIR = path.join(os.homedir(), '.purplemux');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -85,6 +88,25 @@ const writeServerConfig = (server: IServerConfig) => {
   writeAppConfig(cfg);
 };
 
+const readRecentRemoteUrls = (): string[] => {
+  const cfg = readAppConfig();
+  return Array.isArray(cfg.recentRemoteUrls) ? cfg.recentRemoteUrls.filter((u) => typeof u === 'string') : [];
+};
+
+const addRecentRemoteUrl = (url: string) => {
+  const cfg = readAppConfig();
+  const existing = Array.isArray(cfg.recentRemoteUrls) ? cfg.recentRemoteUrls.filter((u) => typeof u === 'string') : [];
+  cfg.recentRemoteUrls = [url, ...existing.filter((u) => u !== url)].slice(0, MAX_RECENT_REMOTE_URLS);
+  writeAppConfig(cfg);
+};
+
+const removeRecentRemoteUrl = (url: string) => {
+  const cfg = readAppConfig();
+  if (!Array.isArray(cfg.recentRemoteUrls)) return;
+  cfg.recentRemoteUrls = cfg.recentRemoteUrls.filter((u) => u !== url);
+  writeAppConfig(cfg);
+};
+
 // --- Window State ---
 
 const DEFAULT_WINDOW_STATE: IWindowState = { width: 1280, height: 800 };
@@ -113,11 +135,19 @@ const isVisibleOnAnyDisplay = (bounds: { x: number; y: number; width: number; he
 
 // --- Prompt Window ---
 
-const showServerPrompt = (parent: BrowserWindow, currentUrl?: string): Promise<string | null> =>
+const showServerPrompt = (
+  parent: BrowserWindow,
+  currentUrl: string | undefined,
+  recent: string[],
+  onDelete: (url: string) => void,
+): Promise<string | null> =>
   new Promise((resolve) => {
+    const visibleRows = Math.min(recent.length, 5);
+    const recentHeight = recent.length ? 28 + visibleRows * 38 : 0;
     const prompt = new BrowserWindow({
       width: 420,
-      height: 180,
+      height: 168 + recentHeight,
+      useContentSize: true,
       parent,
       modal: true,
       resizable: false,
@@ -128,8 +158,9 @@ const showServerPrompt = (parent: BrowserWindow, currentUrl?: string): Promise<s
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
 
-    const escaped = (currentUrl || 'http://').replace(/"/g, '&quot;');
+    const escaped = (currentUrl || 'https://').replace(/"/g, '&quot;');
     const m = mt();
+    const recentJson = JSON.stringify(recent).replace(/</g, '\\u003c');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${m.serverConnection}</title><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}
@@ -140,12 +171,24 @@ input:focus{border-color:#7c3aed}
 button{padding:6px 16px;border-radius:6px;border:1px solid #27272a;font-size:13px;cursor:pointer}
 .cancel{background:#27272a;color:#fafafa}.cancel:hover{background:#3f3f46}
 .connect{background:#7c3aed;color:#fff;border-color:#7c3aed}.connect:hover{background:#6d28d9}
+#recentSection{margin-top:20px;display:none}
+#recentSection label{margin-bottom:6px}
+#recentList{max-height:190px;overflow-y:auto}
+.recent-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.recent-url{flex:1;text-align:left;padding:6px 10px;background:#18181b;color:#fafafa;border:1px solid #27272a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-url:hover{border-color:#7c3aed;background:#1f1f23}
+.recent-del{padding:6px 10px;background:#27272a;color:#a1a1aa;line-height:1}
+.recent-del:hover{background:#3f3f46;color:#fafafa}
 </style></head><body>
 <label>${m.serverAddress}</label>
-<input id="url" value="${escaped}" placeholder="http://192.168.1.100:8022"/>
+<input id="url" value="${escaped}" placeholder="https://192.168.1.100:8022"/>
 <div class="buttons">
 <button class="cancel" id="cancelBtn">${m.cancel}</button>
 <button class="connect" id="connectBtn">${m.connect}</button>
+</div>
+<div id="recentSection">
+<label>${m.recentConnections}</label>
+<div id="recentList"></div>
 </div>
 <script>
 var input=document.getElementById('url');
@@ -159,6 +202,28 @@ input.onkeydown=function(e){
   if(e.key==='Enter')document.getElementById('connectBtn').click();
   if(e.key==='Escape')window.close();
 };
+var recent=${recentJson};
+var seq=0;
+var listEl=document.getElementById('recentList');
+var sectionEl=document.getElementById('recentSection');
+function render(){
+  listEl.innerHTML='';
+  recent.forEach(function(url){
+    var row=document.createElement('div');row.className='recent-row';
+    var pick=document.createElement('button');pick.className='recent-url';pick.textContent=url;pick.title=url;
+    pick.onclick=function(){input.value=url;input.focus()};
+    var del=document.createElement('button');del.className='recent-del';del.textContent='×';del.title=${JSON.stringify(m.remove)};
+    del.onclick=function(e){
+      e.stopPropagation();
+      document.title='DELETE:'+(seq++)+':'+url;
+      recent=recent.filter(function(u){return u!==url});
+      render();
+    };
+    row.appendChild(pick);row.appendChild(del);listEl.appendChild(row);
+  });
+  sectionEl.style.display=recent.length?'block':'none';
+}
+render();
 </script></body></html>`;
 
     let result: string | null = null;
@@ -166,12 +231,24 @@ input.onkeydown=function(e){
     prompt.webContents.on('page-title-updated', (_e, title) => {
       if (title.startsWith('CONNECT:')) {
         result = title.slice('CONNECT:'.length);
+      } else if (title.startsWith('DELETE:')) {
+        const rest = title.slice('DELETE:'.length);
+        const url = rest.slice(rest.indexOf(':') + 1);
+        if (url) onDelete(url);
       }
     });
 
     prompt.on('closed', () => resolve(result));
     prompt.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-    prompt.once('ready-to-show', () => prompt.show());
+    prompt.webContents.once('did-finish-load', async () => {
+      try {
+        const h = await prompt.webContents.executeJavaScript('document.body.offsetHeight');
+        if (typeof h === 'number' && h > 0) prompt.setContentSize(420, Math.round(h));
+      } catch {
+        // keep the estimated size
+      }
+      prompt.show();
+    });
   });
 
 // --- i18n ---
@@ -182,6 +259,8 @@ interface IMenuMessages {
   connectRemoteServer: string;
   serverConnection: string;
   serverAddress: string;
+  recentConnections: string;
+  remove: string;
   cancel: string;
   connect: string;
   checkForUpdates: string;
@@ -198,17 +277,17 @@ interface IMenuMessages {
 }
 
 const menuMessages: Record<string, IMenuMessages> = {
-  en: { server: 'Server', useLocalServer: 'Use Local Server', connectRemoteServer: 'Connect to Remote Server…', serverConnection: 'Server Connection', serverAddress: 'Server Address', cancel: 'Cancel', connect: 'Connect', checkForUpdates: 'Check for Updates…', updateAvailableMessage: 'A new version ({version}) is available', updateAvailableDetail: 'Would you like to download it now?', download: 'Download', later: 'Later', updateReadyMessage: 'Version {version} is ready to install', updateReadyDetail: 'Restart purplemux to apply the update.', restartNow: 'Restart Now', upToDateMessage: "You're up to date", upToDateDetail: 'purplemux {version} is the latest version.', updateErrorMessage: 'Failed to check for updates' },
-  ko: { server: '서버', useLocalServer: '로컬 서버 사용', connectRemoteServer: '원격 서버 연결…', serverConnection: '서버 연결', serverAddress: '서버 주소', cancel: '취소', connect: '연결', checkForUpdates: '업데이트 확인…', updateAvailableMessage: '새 버전({version})이 있습니다', updateAvailableDetail: '지금 다운로드할까요?', download: '다운로드', later: '나중에', updateReadyMessage: '{version} 버전 설치 준비 완료', updateReadyDetail: 'purplemux를 재시작하면 업데이트가 적용됩니다.', restartNow: '지금 재시작', upToDateMessage: '최신 버전입니다', upToDateDetail: 'purplemux {version}을 사용 중입니다.', updateErrorMessage: '업데이트 확인에 실패했습니다' },
-  ja: { server: 'サーバー', useLocalServer: 'ローカルサーバーを使用', connectRemoteServer: 'リモートサーバーに接続…', serverConnection: 'サーバー接続', serverAddress: 'サーバーアドレス', cancel: 'キャンセル', connect: '接続', checkForUpdates: 'アップデートを確認…', updateAvailableMessage: '新しいバージョン ({version}) が利用可能です', updateAvailableDetail: '今すぐダウンロードしますか?', download: 'ダウンロード', later: '後で', updateReadyMessage: 'バージョン {version} のインストール準備が完了しました', updateReadyDetail: 'purplemux を再起動してアップデートを適用します。', restartNow: '今すぐ再起動', upToDateMessage: '最新バージョンです', upToDateDetail: 'purplemux {version} を使用しています。', updateErrorMessage: 'アップデートの確認に失敗しました' },
-  'zh-CN': { server: '服务器', useLocalServer: '使用本地服务器', connectRemoteServer: '连接远程服务器…', serverConnection: '服务器连接', serverAddress: '服务器地址', cancel: '取消', connect: '连接', checkForUpdates: '检查更新…', updateAvailableMessage: '发现新版本 ({version})', updateAvailableDetail: '是否立即下载?', download: '下载', later: '稍后', updateReadyMessage: '版本 {version} 已准备好安装', updateReadyDetail: '重启 purplemux 以应用更新。', restartNow: '立即重启', upToDateMessage: '已是最新版本', upToDateDetail: '当前正在使用 purplemux {version}。', updateErrorMessage: '检查更新失败' },
-  'zh-TW': { server: '伺服器', useLocalServer: '使用本機伺服器', connectRemoteServer: '連線遠端伺服器…', serverConnection: '伺服器連線', serverAddress: '伺服器位址', cancel: '取消', connect: '連線', checkForUpdates: '檢查更新…', updateAvailableMessage: '發現新版本 ({version})', updateAvailableDetail: '是否立即下載?', download: '下載', later: '稍後', updateReadyMessage: '版本 {version} 已準備好安裝', updateReadyDetail: '重新啟動 purplemux 以套用更新。', restartNow: '立即重新啟動', upToDateMessage: '已是最新版本', upToDateDetail: '目前正在使用 purplemux {version}。', updateErrorMessage: '檢查更新失敗' },
-  es: { server: 'Servidor', useLocalServer: 'Usar servidor local', connectRemoteServer: 'Conectar a servidor remoto…', serverConnection: 'Conexión al servidor', serverAddress: 'Dirección del servidor', cancel: 'Cancelar', connect: 'Conectar', checkForUpdates: 'Buscar actualizaciones…', updateAvailableMessage: 'Nueva versión ({version}) disponible', updateAvailableDetail: '¿Deseas descargarla ahora?', download: 'Descargar', later: 'Más tarde', updateReadyMessage: 'La versión {version} está lista para instalar', updateReadyDetail: 'Reinicia purplemux para aplicar la actualización.', restartNow: 'Reiniciar ahora', upToDateMessage: 'Estás al día', upToDateDetail: 'purplemux {version} es la última versión.', updateErrorMessage: 'Error al buscar actualizaciones' },
-  de: { server: 'Server', useLocalServer: 'Lokalen Server verwenden', connectRemoteServer: 'Mit Remote-Server verbinden…', serverConnection: 'Serververbindung', serverAddress: 'Serveradresse', cancel: 'Abbrechen', connect: 'Verbinden', checkForUpdates: 'Nach Updates suchen…', updateAvailableMessage: 'Neue Version ({version}) verfügbar', updateAvailableDetail: 'Möchten Sie sie jetzt herunterladen?', download: 'Herunterladen', later: 'Später', updateReadyMessage: 'Version {version} kann installiert werden', updateReadyDetail: 'Starten Sie purplemux neu, um das Update anzuwenden.', restartNow: 'Jetzt neu starten', upToDateMessage: 'Sie verwenden die neueste Version', upToDateDetail: 'purplemux {version} ist die aktuellste Version.', updateErrorMessage: 'Fehler beim Prüfen auf Updates' },
-  fr: { server: 'Serveur', useLocalServer: 'Utiliser le serveur local', connectRemoteServer: 'Se connecter à un serveur distant…', serverConnection: 'Connexion au serveur', serverAddress: 'Adresse du serveur', cancel: 'Annuler', connect: 'Connecter', checkForUpdates: 'Rechercher les mises à jour…', updateAvailableMessage: 'Nouvelle version ({version}) disponible', updateAvailableDetail: 'Voulez-vous la télécharger maintenant ?', download: 'Télécharger', later: 'Plus tard', updateReadyMessage: 'La version {version} est prête à être installée', updateReadyDetail: 'Redémarrez purplemux pour appliquer la mise à jour.', restartNow: 'Redémarrer maintenant', upToDateMessage: 'Vous êtes à jour', upToDateDetail: 'purplemux {version} est la dernière version.', updateErrorMessage: 'Échec de la recherche de mises à jour' },
-  'pt-BR': { server: 'Servidor', useLocalServer: 'Usar servidor local', connectRemoteServer: 'Conectar a servidor remoto…', serverConnection: 'Conexão com servidor', serverAddress: 'Endereço do servidor', cancel: 'Cancelar', connect: 'Conectar', checkForUpdates: 'Buscar atualizações…', updateAvailableMessage: 'Nova versão ({version}) disponível', updateAvailableDetail: 'Deseja baixá-la agora?', download: 'Baixar', later: 'Depois', updateReadyMessage: 'A versão {version} está pronta para instalar', updateReadyDetail: 'Reinicie o purplemux para aplicar a atualização.', restartNow: 'Reiniciar agora', upToDateMessage: 'Você está atualizado', upToDateDetail: 'purplemux {version} é a versão mais recente.', updateErrorMessage: 'Falha ao verificar atualizações' },
-  ru: { server: 'Сервер', useLocalServer: 'Использовать локальный сервер', connectRemoteServer: 'Подключиться к удалённому серверу…', serverConnection: 'Подключение к серверу', serverAddress: 'Адрес сервера', cancel: 'Отмена', connect: 'Подключить', checkForUpdates: 'Проверить обновления…', updateAvailableMessage: 'Доступна новая версия ({version})', updateAvailableDetail: 'Загрузить её сейчас?', download: 'Загрузить', later: 'Позже', updateReadyMessage: 'Версия {version} готова к установке', updateReadyDetail: 'Перезапустите purplemux, чтобы применить обновление.', restartNow: 'Перезапустить', upToDateMessage: 'У вас последняя версия', upToDateDetail: 'purplemux {version} — это актуальная версия.', updateErrorMessage: 'Не удалось проверить обновления' },
-  tr: { server: 'Sunucu', useLocalServer: 'Yerel sunucuyu kullan', connectRemoteServer: 'Uzak sunucuya bağlan…', serverConnection: 'Sunucu bağlantısı', serverAddress: 'Sunucu adresi', cancel: 'İptal', connect: 'Bağlan', checkForUpdates: 'Güncellemeleri denetle…', updateAvailableMessage: 'Yeni sürüm ({version}) kullanılabilir', updateAvailableDetail: 'Şimdi indirmek ister misiniz?', download: 'İndir', later: 'Sonra', updateReadyMessage: '{version} sürümü yüklemeye hazır', updateReadyDetail: 'Güncellemeyi uygulamak için purplemux’u yeniden başlatın.', restartNow: 'Şimdi Yeniden Başlat', upToDateMessage: 'Güncelsiniz', upToDateDetail: 'purplemux {version} en son sürümdür.', updateErrorMessage: 'Güncelleme kontrolü başarısız' },
+  en: { server: 'Server', useLocalServer: 'Use Local Server', connectRemoteServer: 'Connect to Remote Server…', serverConnection: 'Server Connection', serverAddress: 'Server Address', recentConnections: 'Recent Connections', remove: 'Remove', cancel: 'Cancel', connect: 'Connect', checkForUpdates: 'Check for Updates…', updateAvailableMessage: 'A new version ({version}) is available', updateAvailableDetail: 'Would you like to download it now?', download: 'Download', later: 'Later', updateReadyMessage: 'Version {version} is ready to install', updateReadyDetail: 'Restart purplemux to apply the update.', restartNow: 'Restart Now', upToDateMessage: "You're up to date", upToDateDetail: 'purplemux {version} is the latest version.', updateErrorMessage: 'Failed to check for updates' },
+  ko: { server: '서버', useLocalServer: '로컬 서버 사용', connectRemoteServer: '원격 서버 연결…', serverConnection: '서버 연결', serverAddress: '서버 주소', recentConnections: '최근 연결', remove: '삭제', cancel: '취소', connect: '연결', checkForUpdates: '업데이트 확인…', updateAvailableMessage: '새 버전({version})이 있습니다', updateAvailableDetail: '지금 다운로드할까요?', download: '다운로드', later: '나중에', updateReadyMessage: '{version} 버전 설치 준비 완료', updateReadyDetail: 'purplemux를 재시작하면 업데이트가 적용됩니다.', restartNow: '지금 재시작', upToDateMessage: '최신 버전입니다', upToDateDetail: 'purplemux {version}을 사용 중입니다.', updateErrorMessage: '업데이트 확인에 실패했습니다' },
+  ja: { server: 'サーバー', useLocalServer: 'ローカルサーバーを使用', connectRemoteServer: 'リモートサーバーに接続…', serverConnection: 'サーバー接続', serverAddress: 'サーバーアドレス', recentConnections: '最近の接続', remove: '削除', cancel: 'キャンセル', connect: '接続', checkForUpdates: 'アップデートを確認…', updateAvailableMessage: '新しいバージョン ({version}) が利用可能です', updateAvailableDetail: '今すぐダウンロードしますか?', download: 'ダウンロード', later: '後で', updateReadyMessage: 'バージョン {version} のインストール準備が完了しました', updateReadyDetail: 'purplemux を再起動してアップデートを適用します。', restartNow: '今すぐ再起動', upToDateMessage: '最新バージョンです', upToDateDetail: 'purplemux {version} を使用しています。', updateErrorMessage: 'アップデートの確認に失敗しました' },
+  'zh-CN': { server: '服务器', useLocalServer: '使用本地服务器', connectRemoteServer: '连接远程服务器…', serverConnection: '服务器连接', serverAddress: '服务器地址', recentConnections: '最近的连接', remove: '删除', cancel: '取消', connect: '连接', checkForUpdates: '检查更新…', updateAvailableMessage: '发现新版本 ({version})', updateAvailableDetail: '是否立即下载?', download: '下载', later: '稍后', updateReadyMessage: '版本 {version} 已准备好安装', updateReadyDetail: '重启 purplemux 以应用更新。', restartNow: '立即重启', upToDateMessage: '已是最新版本', upToDateDetail: '当前正在使用 purplemux {version}。', updateErrorMessage: '检查更新失败' },
+  'zh-TW': { server: '伺服器', useLocalServer: '使用本機伺服器', connectRemoteServer: '連線遠端伺服器…', serverConnection: '伺服器連線', serverAddress: '伺服器位址', recentConnections: '最近的連線', remove: '刪除', cancel: '取消', connect: '連線', checkForUpdates: '檢查更新…', updateAvailableMessage: '發現新版本 ({version})', updateAvailableDetail: '是否立即下載?', download: '下載', later: '稍後', updateReadyMessage: '版本 {version} 已準備好安裝', updateReadyDetail: '重新啟動 purplemux 以套用更新。', restartNow: '立即重新啟動', upToDateMessage: '已是最新版本', upToDateDetail: '目前正在使用 purplemux {version}。', updateErrorMessage: '檢查更新失敗' },
+  es: { server: 'Servidor', useLocalServer: 'Usar servidor local', connectRemoteServer: 'Conectar a servidor remoto…', serverConnection: 'Conexión al servidor', serverAddress: 'Dirección del servidor', recentConnections: 'Conexiones recientes', remove: 'Eliminar', cancel: 'Cancelar', connect: 'Conectar', checkForUpdates: 'Buscar actualizaciones…', updateAvailableMessage: 'Nueva versión ({version}) disponible', updateAvailableDetail: '¿Deseas descargarla ahora?', download: 'Descargar', later: 'Más tarde', updateReadyMessage: 'La versión {version} está lista para instalar', updateReadyDetail: 'Reinicia purplemux para aplicar la actualización.', restartNow: 'Reiniciar ahora', upToDateMessage: 'Estás al día', upToDateDetail: 'purplemux {version} es la última versión.', updateErrorMessage: 'Error al buscar actualizaciones' },
+  de: { server: 'Server', useLocalServer: 'Lokalen Server verwenden', connectRemoteServer: 'Mit Remote-Server verbinden…', serverConnection: 'Serververbindung', serverAddress: 'Serveradresse', recentConnections: 'Letzte Verbindungen', remove: 'Entfernen', cancel: 'Abbrechen', connect: 'Verbinden', checkForUpdates: 'Nach Updates suchen…', updateAvailableMessage: 'Neue Version ({version}) verfügbar', updateAvailableDetail: 'Möchten Sie sie jetzt herunterladen?', download: 'Herunterladen', later: 'Später', updateReadyMessage: 'Version {version} kann installiert werden', updateReadyDetail: 'Starten Sie purplemux neu, um das Update anzuwenden.', restartNow: 'Jetzt neu starten', upToDateMessage: 'Sie verwenden die neueste Version', upToDateDetail: 'purplemux {version} ist die aktuellste Version.', updateErrorMessage: 'Fehler beim Prüfen auf Updates' },
+  fr: { server: 'Serveur', useLocalServer: 'Utiliser le serveur local', connectRemoteServer: 'Se connecter à un serveur distant…', serverConnection: 'Connexion au serveur', serverAddress: 'Adresse du serveur', recentConnections: 'Connexions récentes', remove: 'Supprimer', cancel: 'Annuler', connect: 'Connecter', checkForUpdates: 'Rechercher les mises à jour…', updateAvailableMessage: 'Nouvelle version ({version}) disponible', updateAvailableDetail: 'Voulez-vous la télécharger maintenant ?', download: 'Télécharger', later: 'Plus tard', updateReadyMessage: 'La version {version} est prête à être installée', updateReadyDetail: 'Redémarrez purplemux pour appliquer la mise à jour.', restartNow: 'Redémarrer maintenant', upToDateMessage: 'Vous êtes à jour', upToDateDetail: 'purplemux {version} est la dernière version.', updateErrorMessage: 'Échec de la recherche de mises à jour' },
+  'pt-BR': { server: 'Servidor', useLocalServer: 'Usar servidor local', connectRemoteServer: 'Conectar a servidor remoto…', serverConnection: 'Conexão com servidor', serverAddress: 'Endereço do servidor', recentConnections: 'Conexões recentes', remove: 'Remover', cancel: 'Cancelar', connect: 'Conectar', checkForUpdates: 'Buscar atualizações…', updateAvailableMessage: 'Nova versão ({version}) disponível', updateAvailableDetail: 'Deseja baixá-la agora?', download: 'Baixar', later: 'Depois', updateReadyMessage: 'A versão {version} está pronta para instalar', updateReadyDetail: 'Reinicie o purplemux para aplicar a atualização.', restartNow: 'Reiniciar agora', upToDateMessage: 'Você está atualizado', upToDateDetail: 'purplemux {version} é a versão mais recente.', updateErrorMessage: 'Falha ao verificar atualizações' },
+  ru: { server: 'Сервер', useLocalServer: 'Использовать локальный сервер', connectRemoteServer: 'Подключиться к удалённому серверу…', serverConnection: 'Подключение к серверу', serverAddress: 'Адрес сервера', recentConnections: 'Недавние подключения', remove: 'Удалить', cancel: 'Отмена', connect: 'Подключить', checkForUpdates: 'Проверить обновления…', updateAvailableMessage: 'Доступна новая версия ({version})', updateAvailableDetail: 'Загрузить её сейчас?', download: 'Загрузить', later: 'Позже', updateReadyMessage: 'Версия {version} готова к установке', updateReadyDetail: 'Перезапустите purplemux, чтобы применить обновление.', restartNow: 'Перезапустить', upToDateMessage: 'У вас последняя версия', upToDateDetail: 'purplemux {version} — это актуальная версия.', updateErrorMessage: 'Не удалось проверить обновления' },
+  tr: { server: 'Sunucu', useLocalServer: 'Yerel sunucuyu kullan', connectRemoteServer: 'Uzak sunucuya bağlan…', serverConnection: 'Sunucu bağlantısı', serverAddress: 'Sunucu adresi', recentConnections: 'Son bağlantılar', remove: 'Kaldır', cancel: 'İptal', connect: 'Bağlan', checkForUpdates: 'Güncellemeleri denetle…', updateAvailableMessage: 'Yeni sürüm ({version}) kullanılabilir', updateAvailableDetail: 'Şimdi indirmek ister misiniz?', download: 'İndir', later: 'Sonra', updateReadyMessage: '{version} sürümü yüklemeye hazır', updateReadyDetail: 'Güncellemeyi uygulamak için purplemux’u yeniden başlatın.', restartNow: 'Şimdi Yeniden Başlat', upToDateMessage: 'Güncelsiniz', upToDateDetail: 'purplemux {version} en son sürümdür.', updateErrorMessage: 'Güncelleme kontrolü başarısız' },
 };
 
 let currentLocale = 'en';
@@ -511,7 +590,7 @@ const handleSwitchToRemote = async () => {
   const parent = getPrimaryWindow();
   if (!parent) return;
 
-  const url = await showServerPrompt(parent, serverConfig.remoteUrl);
+  const url = await showServerPrompt(parent, serverConfig.remoteUrl, readRecentRemoteUrls(), removeRecentRemoteUrl);
   if (!url) {
     updateMenu();
     return;
@@ -520,6 +599,7 @@ const handleSwitchToRemote = async () => {
   await stopLocalServer();
   serverConfig = { mode: 'remote', remoteUrl: url };
   writeServerConfig(serverConfig);
+  addRecentRemoteUrl(url);
   for (const w of windows) w.loadURL(url);
   updateMenu();
 };
