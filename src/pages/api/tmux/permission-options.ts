@@ -29,11 +29,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     const permissionOptions = parsePermissionOptions(content);
-    const { options } = permissionOptions.options.length > 0
+    const prompt = permissionOptions.options.length > 0
       ? permissionOptions
       : parseChoiceOptions(content);
     const isBypassPrompt = content.includes('Bypass Permissions');
-    return res.status(200).json({ options, ...(isBypassPrompt && { isBypassPrompt: true }) });
+    return res.status(200).json({ ...prompt, ...(isBypassPrompt && { isBypassPrompt: true }) });
   } catch (err) {
     log.error(`permission-options query failed: ${err instanceof Error ? err.message : err}`);
     return res.status(500).json({ error: 'Terminal capture failed' });

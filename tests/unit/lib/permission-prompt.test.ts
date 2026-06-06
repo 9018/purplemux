@@ -15,6 +15,7 @@ describe('parsePermissionOptions', () => {
 
     expect(result.options).toEqual(['1. Yes', '2. No']);
     expect(result.focusedIndex).toBe(0);
+    expect(result.request).toBe('Do you want to proceed?');
   });
 
   it('좁은 터미널에서 "2Yes"처럼 wrap된 라인도 파싱한다', () => {
@@ -30,6 +31,7 @@ describe('parsePermissionOptions', () => {
 
     expect(result.options).toHaveLength(3);
     expect(result.focusedIndex).toBe(1);
+    expect(result.request).toBe('Permission required');
     expect(result.options[1]).toContain("Yes, and don't ask again");
   });
 
@@ -61,6 +63,7 @@ describe('parsePermissionOptions', () => {
       '3. No',
     ]);
     expect(result.focusedIndex).toBe(0);
+    expect(result.request).toBe('Do you want to proceed?');
   });
 
   it('terminal soft-wrap으로 다음 줄로 이어진 긴 옵션을 합친다', () => {
@@ -80,6 +83,7 @@ describe('parsePermissionOptions', () => {
       '3. No',
     ]);
     expect(result.focusedIndex).toBe(0);
+    expect(result.request).toBe('Do you want to proceed?');
   });
 
   it('스크롤백에 이전 프롬프트가 남아있으면 가장 최근 블록을 선택한다', () => {
@@ -103,6 +107,8 @@ describe('parsePermissionOptions', () => {
     expect(result.options).toHaveLength(3);
     expect(result.options[1]).toContain('tmux list-sessions');
     expect(result.focusedIndex).toBe(1);
+    expect(result.request).toBe('Do you want to proceed?');
+    expect(result.title).toBeUndefined();
   });
 
   it('keyword 기반 Accept/Decline 프롬프트를 인식한다', () => {
@@ -117,6 +123,7 @@ describe('parsePermissionOptions', () => {
 
     expect(result.options).toEqual(['Accept', 'Decline']);
     expect(result.focusedIndex).toBe(0);
+    expect(result.request).toBe('Trust this workspace?');
   });
 });
 
@@ -159,6 +166,41 @@ describe('parseChoiceOptions', () => {
         '5. Chat about this',
       ],
       focusedIndex: 0,
+      title: '변경사항',
+      request: '커밋 안 된 변경사항(pane-container.tsx, capture-at-width.ts)을 어떻게 처리할까요?',
+    });
+  });
+
+  it('Claude AskUserQuestion title과 요청사항을 옵션 위에서 복원한다', () => {
+    const pane = [
+      ' ☐ 테마',
+      '',
+      '어떤 색상 테마를 선택하시겠어요?',
+      '',
+      '❯ 1. 다크 모드',
+      '     어두운 배경에 밝은 텍스트. 야간 작업에 적합합니다.',
+      '  2. 라이트 모드',
+      '     밝은 배경에 어두운 텍스트. 주간 작업에 적합합니다.',
+      '  3. 시스템 설정',
+      '     OS의 다크/라이트 설정을 자동으로 따라갑니다.',
+      '  4. Type something.',
+      '────────────────────────────────────────────────────────────────',
+      '  5. Chat about this',
+      '',
+      'Enter to select · ↑/↓ to navigate · Esc to cancel',
+    ].join('\n');
+
+    expect(parseChoiceOptions(pane)).toEqual({
+      options: [
+        '1. 다크 모드',
+        '2. 라이트 모드',
+        '3. 시스템 설정',
+        '4. Type something.',
+        '5. Chat about this',
+      ],
+      focusedIndex: 0,
+      title: '테마',
+      request: '어떤 색상 테마를 선택하시겠어요?',
     });
   });
 

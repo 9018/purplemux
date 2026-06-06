@@ -15,11 +15,21 @@ const NUMBER_PREFIX_RE = /^(\d+)\.\s+/;
 const NUMBERED_LINE_RE = /^\s*([❯›>])?\s*(?:[↓↑]\s*)?(\d+)\.?\s*(\S.*)$/;
 const SEPARATOR_LINE_RE = /^[\s─━\-]+$/;
 
+export interface IParsedPromptOptions {
+  options: string[];
+  focusedIndex: number;
+  title?: string;
+  request?: string;
+}
+
 export const stripNumberPrefix = (label: string) => label.replace(NUMBER_PREFIX_RE, '');
 export const optionNumber = (label: string): string | null => label.match(NUMBER_PREFIX_RE)?.[1] ?? null;
 const hasOption = (options: string[], prefix: string) =>
   options.some((o) => stripNumberPrefix(o).startsWith(prefix));
 const leadingSpaces = (line: string): number => line.match(/^\s*/)?.[0].length ?? 0;
+const cleanPromptLine = (line: string): string =>
+  line.trim().replace(/^[☐☑]\s*/, '').trim();
+const isPromptTitleLine = (line: string): boolean => /^[\s]*[☐☑]\s*\S/.test(line);
 
 // tmux pane capture가 손상된 경우 원본 옵션 텍스트를 복원한다.
 // - "Yescurrent status for this tab"처럼 다른 UI 영역이 뒤에 붙은 경우 "Yes"만 남김
@@ -45,25 +55,69 @@ const isKnownPromptPattern = (options: string[]): boolean => {
     || (hasOption(options, 'Continue this conversation') && hasOption(options, 'Send message as'));
 };
 
-const parseNumberedOptions = (lines: string[]): { options: string[]; focusedIndex: number } => {
+const extractPromptText = (lines: string[], optionStartIndex: number): Pick<IParsedPromptOptions, 'title' | 'request'> => {
+  if (optionStartIndex <= 0) return {};
+
+  let cursor = optionStartIndex - 1;
+  while (cursor >= 0 && (!lines[cursor].trim() || SEPARATOR_LINE_RE.test(lines[cursor]))) cursor -= 1;
+
+  const requestLines: string[] = [];
+  while (cursor >= 0 && lines[cursor].trim() && !SEPARATOR_LINE_RE.test(lines[cursor])) {
+    requestLines.unshift(cleanPromptLine(lines[cursor]));
+    cursor -= 1;
+  }
+
+  while (cursor >= 0 && (!lines[cursor].trim() || SEPARATOR_LINE_RE.test(lines[cursor]))) cursor -= 1;
+
+  const titleLines: string[] = [];
+  const rawTitleLines: string[] = [];
+  while (cursor >= 0 && lines[cursor].trim() && !SEPARATOR_LINE_RE.test(lines[cursor])) {
+    rawTitleLines.unshift(lines[cursor]);
+    titleLines.unshift(cleanPromptLine(lines[cursor]));
+    cursor -= 1;
+  }
+
+  const request = requestLines.join('\n').trim();
+  const title = rawTitleLines.some(isPromptTitleLine)
+    ? titleLines.join('\n').trim()
+    : '';
+  return {
+    ...(title && { title }),
+    ...(request && { request }),
+  };
+};
+
+const withPromptText = (
+  parsed: IParsedPromptOptions,
+  lines: string[],
+  optionStartIndex: number,
+): IParsedPromptOptions => ({
+  ...parsed,
+  ...extractPromptText(lines, optionStartIndex),
+});
+
+const parseNumberedOptions = (lines: string[]): IParsedPromptOptions => {
   // 스크롤백에 이전 프롬프트 블록이 남아있는 경우 마지막 블록을 선택한다
-  const blocks: { rawOptions: string[]; focusedIndex: number }[] = [];
+  const blocks: { rawOptions: string[]; focusedIndex: number; optionStartIndex: number }[] = [];
   let rawOptions: string[] = [];
   let focusedIndex = 0;
   let expected = 1;
   let lastOptionIndent = 0;
+  let optionStartIndex = -1;
 
   const flush = () => {
     if (rawOptions.length >= 2) {
-      blocks.push({ rawOptions: rawOptions.slice(), focusedIndex });
+      blocks.push({ rawOptions: rawOptions.slice(), focusedIndex, optionStartIndex });
     }
     rawOptions = [];
     focusedIndex = 0;
     expected = 1;
     lastOptionIndent = 0;
+    optionStartIndex = -1;
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     // 손상된 pane capture에서 옵션 사이에 빈 줄이 끼어 있을 수 있으므로 break하지 않고 계속 탐색
     if (!line.trim()) continue;
 
@@ -78,6 +132,7 @@ const parseNumberedOptions = (lines: string[]): { options: string[]; focusedInde
           rawOptions.push(rest);
           if (marker) focusedIndex = 0;
           lastOptionIndent = leadingSpaces(line);
+          optionStartIndex = i;
           expected = 2;
           continue;
         }
@@ -107,17 +162,21 @@ const parseNumberedOptions = (lines: string[]): { options: string[]; focusedInde
   if (!best) return { options: [], focusedIndex: 0 };
 
   return {
-    options: best.rawOptions.map((raw, i) => `${i + 1}. ${normalizeOption(raw)}`),
-    focusedIndex: best.focusedIndex,
+    ...withPromptText({
+      options: best.rawOptions.map((raw, i) => `${i + 1}. ${normalizeOption(raw)}`),
+      focusedIndex: best.focusedIndex,
+    }, lines, best.optionStartIndex),
   };
 };
 
-const parseKeywordOptions = (lines: string[]): { options: string[]; focusedIndex: number } => {
+const parseKeywordOptions = (lines: string[]): IParsedPromptOptions => {
   const options: string[] = [];
   let focusedIndex = 0;
+  let optionStartIndex = -1;
   let foundFirst = false;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (!line.trim()) {
       if (foundFirst) break;
       continue;
@@ -138,32 +197,36 @@ const parseKeywordOptions = (lines: string[]): { options: string[]; focusedIndex
     const isKeyword = OPTION_KEYWORDS.some((kw) => stripped.startsWith(kw));
 
     if (isKeyword) {
+      if (options.length === 0) optionStartIndex = i;
       if (isFocused) focusedIndex = options.length;
       options.push(label);
       foundFirst = true;
     }
   }
 
-  return { options, focusedIndex };
+  return withPromptText({ options, focusedIndex }, lines, optionStartIndex);
 };
 
-export const parseChoiceOptions = (paneContent: string): { options: string[]; focusedIndex: number } => {
+export const parseChoiceOptions = (paneContent: string): IParsedPromptOptions => {
   const lines = paneContent.split('\n');
-  const blocks: { options: string[]; focusedIndex: number }[] = [];
+  const blocks: { options: string[]; focusedIndex: number; optionStartIndex: number }[] = [];
   let options: string[] = [];
   let focusedIndex = -1;
   let lastNumber = 0;
+  let optionStartIndex = -1;
 
   const flush = () => {
     if (options.length >= 2 && focusedIndex >= 0) {
-      blocks.push({ options: options.slice(), focusedIndex });
+      blocks.push({ options: options.slice(), focusedIndex, optionStartIndex });
     }
     options = [];
     focusedIndex = -1;
     lastNumber = 0;
+    optionStartIndex = -1;
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (!line.trim()) continue;
     if (SEPARATOR_LINE_RE.test(line)) continue;
 
@@ -175,6 +238,7 @@ export const parseChoiceOptions = (paneContent: string): { options: string[]; fo
 
       if (options.length > 0 && num <= lastNumber) flush();
       if (rest.length > 0) {
+        if (options.length === 0) optionStartIndex = i;
         if (marker) focusedIndex = options.length;
         options.push(`${num}. ${normalizeOption(rest)}`);
         lastNumber = num;
@@ -187,10 +251,15 @@ export const parseChoiceOptions = (paneContent: string): { options: string[]; fo
   flush();
 
   const best = blocks[blocks.length - 1];
-  return best ?? { options: [], focusedIndex: 0 };
+  if (!best) return { options: [], focusedIndex: 0 };
+
+  return withPromptText({
+    options: best.options,
+    focusedIndex: best.focusedIndex,
+  }, lines, best.optionStartIndex);
 };
 
-export const parsePermissionOptions = (paneContent: string): { options: string[]; focusedIndex: number } => {
+export const parsePermissionOptions = (paneContent: string): IParsedPromptOptions => {
   const lines = paneContent.split('\n');
 
   const numbered = parseNumberedOptions(lines);

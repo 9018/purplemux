@@ -14,14 +14,26 @@ interface IPermissionPromptItemProps {
   silent?: boolean;
 }
 
-const fetchPermissionOptions = async (session: string): Promise<string[]> => {
+interface IPermissionPrompt {
+  title?: string;
+  request?: string;
+  options: string[];
+}
+
+const EMPTY_PROMPT: IPermissionPrompt = { options: [] };
+
+const fetchPermissionPrompt = async (session: string): Promise<IPermissionPrompt> => {
   try {
     const res = await fetch(`/api/tmux/permission-options?session=${encodeURIComponent(session)}`);
-    if (!res.ok) return [];
+    if (!res.ok) return EMPTY_PROMPT;
     const data = await res.json();
-    return data.options ?? [];
+    return {
+      title: typeof data.title === 'string' ? data.title : undefined,
+      request: typeof data.request === 'string' ? data.request : undefined,
+      options: Array.isArray(data.options) ? data.options : [],
+    };
   } catch {
-    return [];
+    return EMPTY_PROMPT;
   }
 };
 
@@ -56,7 +68,7 @@ const PROMPT_MOTION = {
 const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissionPromptItemProps) => {
   const t = useTranslations('timeline');
   const [localSelected, setLocalSelected] = useState<number | null>(null);
-  const [options, setOptions] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState<IPermissionPrompt>(EMPTY_PROMPT);
   const [phase, setPhase] = useState<TPhase>('loading');
   const [dismissed, setDismissed] = useState(false);
   const cliState = useTabStore((s) => tabId ? s.tabs[tabId]?.cliState : undefined);
@@ -67,17 +79,17 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
     let timer: ReturnType<typeof setTimeout> | null = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dep 변경 시 상태 리셋 후 재fetch가 이 이펙트의 목적
     setLocalSelected(null);
-    setOptions([]);
+    setPrompt(EMPTY_PROMPT);
     setPhase('loading');
     setDismissed(false);
 
     const maxRetries = silent ? 0 : RETRY_DELAYS_MS.length;
 
     const attempt = async (retryIndex: number) => {
-      const fetched = await fetchPermissionOptions(sessionName);
+      const fetched = await fetchPermissionPrompt(sessionName);
       if (cancelled) return;
-      if (fetched.length > 0) {
-        setOptions(fetched);
+      if (fetched.options.length > 0) {
+        setPrompt(fetched);
         setPhase('ready');
         return;
       }
@@ -103,7 +115,7 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
       if (localSelected !== null) return;
 
       setLocalSelected(idx);
-      const ok = await sendSelection(sessionName, idx, options[idx] ?? '');
+      const ok = await sendSelection(sessionName, idx, prompt.options[idx] ?? '');
       if (!ok) {
         setLocalSelected(null);
         toast.error(t('selectionFailed'));
@@ -114,7 +126,7 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
       }
       setDismissed(true);
     },
-    [sessionName, localSelected, options, t, tabId, lastEventSeq],
+    [sessionName, localSelected, prompt.options, t, tabId, lastEventSeq],
   );
 
   const renderContent = () => {
@@ -149,11 +161,17 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
         <div className="rounded-lg border border-claude-active/20 bg-claude-active/5 px-4 py-3">
           <div className="mb-2.5 flex items-center gap-2 text-xs font-medium text-claude-active">
             <ShieldCheck size={14} />
-            <span>{t('permissionRequired')}</span>
+            <span>{prompt.title || t('permissionRequired')}</span>
           </div>
 
+          {prompt.request && (
+            <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {prompt.request}
+            </p>
+          )}
+
           <div className="flex flex-col gap-1.5">
-            {options.map((label, idx) => {
+            {prompt.options.map((label, idx) => {
               const isSelected = localSelected === idx;
               const dimmed = localSelected !== null && !isSelected;
 
