@@ -368,7 +368,7 @@ const useLayoutStore = create<ILayoutState>((set, get) => ({
       });
       if (!res.ok) throw new Error();
       const data: ILayoutData = await res.json();
-      applyLayout(set, get, data);
+      applyLayoutPreserveFocus(set, get, data);
     } catch {
       toast.error('Pane을 닫을 수 없습니다');
     }
