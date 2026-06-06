@@ -1,7 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { addSubscription, removeSubscription } from '@/lib/push-subscriptions';
+import { addSubscription, removeSubscription, listDeviceEndpoints } from '@/lib/push-subscriptions';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  if (req.method === 'GET') {
+    return res.status(200).json({ devices: await listDeviceEndpoints() });
+  }
+
   if (req.method === 'POST') {
     const sub = req.body;
     if (!sub?.endpoint) {
@@ -20,7 +24,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(200).json({ ok: true });
   }
 
-  res.setHeader('Allow', 'POST, DELETE');
+  res.setHeader('Allow', 'GET, POST, DELETE');
   return res.status(405).json({ error: 'Method not allowed' });
 };
 

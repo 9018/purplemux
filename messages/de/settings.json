@@ -120,7 +120,13 @@
       "bottom-left": "Unten links",
       "bottom-center": "Unten mittig",
       "bottom-right": "Unten rechts"
-    }
+    },
+    "devicesSection": "Registrierte Geräte",
+    "devicesSectionDescription": "Geräte, die Push-Benachrichtigungen erhalten. Entfernen Sie nicht mehr genutzte Geräte.",
+    "deviceThis": "Dieses Gerät",
+    "deviceRemove": "Gerät entfernen",
+    "deviceRemoved": "Gerät entfernt",
+    "deviceRemoveFailed": "Gerät konnte nicht entfernt werden"
   },
   "agent": {
     "enableMenu": "Agentenmenü aktivieren",

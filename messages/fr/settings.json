@@ -120,7 +120,13 @@
       "bottom-left": "En bas à gauche",
       "bottom-center": "En bas au centre",
       "bottom-right": "En bas à droite"
-    }
+    },
+    "devicesSection": "Appareils enregistrés",
+    "devicesSectionDescription": "Appareils abonnés aux notifications push. Supprimez ceux que vous n’utilisez plus.",
+    "deviceThis": "Cet appareil",
+    "deviceRemove": "Supprimer l’appareil",
+    "deviceRemoved": "Appareil supprimé",
+    "deviceRemoveFailed": "Échec de la suppression de l’appareil"
   },
   "agent": {
     "enableMenu": "Activer le menu Agent",

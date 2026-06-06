@@ -120,7 +120,13 @@
       "bottom-left": "Bottom left",
       "bottom-center": "Bottom center",
       "bottom-right": "Bottom right"
-    }
+    },
+    "devicesSection": "Registered Devices",
+    "devicesSectionDescription": "Devices subscribed to push notifications. Remove any you no longer use.",
+    "deviceThis": "This device",
+    "deviceRemove": "Remove device",
+    "deviceRemoved": "Device removed",
+    "deviceRemoveFailed": "Failed to remove device"
   },
   "agent": {
     "enableMenu": "Enable Agent Menu",

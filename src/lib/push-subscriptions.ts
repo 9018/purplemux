@@ -44,6 +44,9 @@ const writeSubs = async (subs: PushSubscription[]): Promise<void> => {
 
 export const getSubscriptions = async (): Promise<PushSubscription[]> => readSubs();
 
+export const listDeviceEndpoints = async (): Promise<{ endpoint: string }[]> =>
+  (await readSubs()).map((s) => ({ endpoint: s.endpoint }));
+
 export const addSubscription = async (sub: PushSubscription): Promise<void> =>
   withLock(async () => {
     const subs = await readSubs();

@@ -120,7 +120,13 @@
       "bottom-left": "左下",
       "bottom-center": "下中央",
       "bottom-right": "右下"
-    }
+    },
+    "devicesSection": "登録済みデバイス",
+    "devicesSectionDescription": "プッシュ通知を受け取るデバイスです。使わなくなったデバイスは削除してください。",
+    "deviceThis": "このデバイス",
+    "deviceRemove": "デバイスを削除",
+    "deviceRemoved": "デバイスを削除しました",
+    "deviceRemoveFailed": "デバイスの削除に失敗しました"
   },
   "agent": {
     "enableMenu": "エージェントメニューを有効化",

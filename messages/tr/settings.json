@@ -120,7 +120,13 @@
       "bottom-left": "Sol alt",
       "bottom-center": "Alt orta",
       "bottom-right": "Sağ alt"
-    }
+    },
+    "devicesSection": "Kayıtlı cihazlar",
+    "devicesSectionDescription": "Push bildirimi alan cihazlar. Artık kullanmadıklarınızı kaldırın.",
+    "deviceThis": "Bu cihaz",
+    "deviceRemove": "Cihazı kaldır",
+    "deviceRemoved": "Cihaz kaldırıldı",
+    "deviceRemoveFailed": "Cihaz kaldırılamadı"
   },
   "agent": {
     "enableMenu": "Ajan Menüsünü Etkinleştir",

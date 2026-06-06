@@ -76,7 +76,7 @@ const hasExistingSubscription = async (): Promise<boolean> => {
   }
 };
 
-const getEndpoint = async (): Promise<string | null> => {
+export const getEndpoint = async (): Promise<string | null> => {
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();

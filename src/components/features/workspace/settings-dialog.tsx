@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import packageJson from '../../../../package.json';
 import isElectron from '@/hooks/use-is-electron';
-import { Bell, Bot, ChevronDown, ChevronRight, Dices, FolderCode, Globe, ImageIcon, Keyboard, Layout, Lock, Monitor, Moon, Network, Palette, RotateCcw, Settings, Sun, Terminal, Trash2, Wrench, X, Zap } from 'lucide-react';
+import { Bell, Bot, ChevronDown, ChevronRight, Dices, FolderCode, Globe, ImageIcon, Keyboard, Layout, Lock, Monitor, MonitorSmartphone, Moon, Network, Palette, RotateCcw, Settings, Sun, Terminal, Trash2, Wrench, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ import useConfigStore from '@/hooks/use-config-store';
 import type { TGitAskProvider, TNoteSummaryProvider } from '@/hooks/use-config-store';
 import { TOAST_POSITIONS, type TToastPosition } from '@/lib/toast-position';
 import useWorkspaceStore from '@/hooks/use-workspace-store';
+import { getEndpoint } from '@/hooks/use-web-push';
 import { TERMINAL_THEMES } from '@/lib/terminal-themes';
 import { EDITOR_PRESETS, buildEditorUrl, type TEditorPreset } from '@/lib/editor-url';
 import { EditorIcon } from '@/components/icons/editor-icons';
@@ -690,6 +691,19 @@ const ToastPositionSelect = ({
   );
 };
 
+const deviceLabelFromEndpoint = (endpoint: string): string => {
+  try {
+    const host = new URL(endpoint).host;
+    if (host.includes('apple')) return 'Apple';
+    if (host.includes('fcm') || host.includes('google')) return 'Chrome / Android';
+    if (host.includes('mozilla')) return 'Firefox';
+    if (host.includes('windows') || host.includes('wns')) return 'Windows';
+    return host;
+  } catch {
+    return 'Unknown';
+  }
+};
+
 const NotificationTab = () => {
   const t = useTranslations('settings.notification');
   const notificationsEnabled = useConfigStore((state) => state.notificationsEnabled);
@@ -705,6 +719,38 @@ const NotificationTab = () => {
 
   const [durationDraft, setDurationDraft] = useState<string | null>(null);
   const durationInput = durationDraft ?? String(Math.round(toastDuration / 1000));
+
+  const [devices, setDevices] = useState<{ endpoint: string }[]>([]);
+  const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
+
+  const fetchDevices = useCallback(async (): Promise<{ endpoint: string }[]> => {
+    try {
+      const res = await fetch('/api/push/subscribe');
+      const data = await res.json();
+      return Array.isArray(data.devices) ? data.devices : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDevices().then(setDevices);
+    getEndpoint().then(setCurrentEndpoint);
+  }, [fetchDevices]);
+
+  const removeDevice = async (endpoint: string) => {
+    try {
+      await fetch('/api/push/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+      });
+      toast.success(t('deviceRemoved'));
+      setDevices(await fetchDevices());
+    } catch {
+      toast.error(t('deviceRemoveFailed'));
+    }
+  };
 
   const commitDuration = () => {
     const parsed = Number(durationDraft);
@@ -750,6 +796,45 @@ const NotificationTab = () => {
           <p className="text-sm text-muted-foreground">{t('notSupported')}</p>
         )}
       </div>
+
+      {devices.length > 0 && (
+        <div className="border-t pt-6 space-y-4">
+          <div>
+            <p className="text-sm font-medium">{t('devicesSection')}</p>
+            <p className="text-sm text-muted-foreground">{t('devicesSectionDescription')}</p>
+          </div>
+          <div className="space-y-2">
+            {devices.map((d) => {
+              const isCurrent = !!currentEndpoint && d.endpoint === currentEndpoint;
+              return (
+                <div
+                  key={d.endpoint}
+                  className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <MonitorSmartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-sm">{deviceLabelFromEndpoint(d.endpoint)}</span>
+                    {isCurrent && (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                        {t('deviceThis')}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeDevice(d.endpoint)}
+                    aria-label={t('deviceRemove')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="border-t pt-6 space-y-4">
         <div>

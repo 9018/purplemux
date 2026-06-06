@@ -120,7 +120,13 @@
       "bottom-left": "Снизу слева",
       "bottom-center": "Снизу по центру",
       "bottom-right": "Снизу справа"
-    }
+    },
+    "devicesSection": "Зарегистрированные устройства",
+    "devicesSectionDescription": "Устройства, подписанные на push-уведомления. Удалите те, которыми больше не пользуетесь.",
+    "deviceThis": "Это устройство",
+    "deviceRemove": "Удалить устройство",
+    "deviceRemoved": "Устройство удалено",
+    "deviceRemoveFailed": "Не удалось удалить устройство"
   },
   "agent": {
     "enableMenu": "Включить меню агентов",

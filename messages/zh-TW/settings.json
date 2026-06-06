@@ -120,7 +120,13 @@
       "bottom-left": "左下",
       "bottom-center": "底部置中",
       "bottom-right": "右下"
-    }
+    },
+    "devicesSection": "已註冊裝置",
+    "devicesSectionDescription": "已訂閱推播通知的裝置。請移除不再使用的裝置。",
+    "deviceThis": "目前裝置",
+    "deviceRemove": "移除裝置",
+    "deviceRemoved": "已移除裝置",
+    "deviceRemoveFailed": "移除裝置失敗"
   },
   "agent": {
     "enableMenu": "啟用代理選單",

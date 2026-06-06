@@ -120,7 +120,13 @@
       "bottom-left": "左下",
       "bottom-center": "底部居中",
       "bottom-right": "右下"
-    }
+    },
+    "devicesSection": "已注册设备",
+    "devicesSectionDescription": "已订阅推送通知的设备。请移除不再使用的设备。",
+    "deviceThis": "当前设备",
+    "deviceRemove": "移除设备",
+    "deviceRemoved": "已移除设备",
+    "deviceRemoveFailed": "移除设备失败"
   },
   "agent": {
     "enableMenu": "启用智能体菜单",
