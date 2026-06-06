@@ -24,6 +24,12 @@
     "fontSizeNormal": "Normal",
     "fontSizeLarge": "Grand",
     "fontSizeXLarge": "Très grand",
+    "lineSpacing": "Interligne",
+    "lineSpacingDescription": "Ajustez l'espacement entre les lignes du terminal.",
+    "lineSpacingTight": "Serré",
+    "lineSpacingNormal": "Normal",
+    "lineSpacingRelaxed": "Aéré",
+    "lineSpacingCustom": "Personnalisé",
     "keyboardShortcuts": "Raccourcis clavier",
     "keyboardShortcutsDescription": "Afficher et personnaliser tous les raccourcis clavier.",
     "openShortcuts": "Ouvrir"

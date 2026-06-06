@@ -24,6 +24,7 @@ import useTerminalTheme from '@/hooks/use-terminal-theme';
 import useTabStore, { getInitialTabStateFromLayoutTab, selectSessionView } from '@/hooks/use-tab-store';
 import { useLayoutStore } from '@/hooks/use-layout';
 import useConfigStore, { type TGitAskProvider } from '@/hooks/use-config-store';
+import { resolveLineHeight } from '@/lib/terminal-line-height';
 import useTrustPromptDetector from '@/hooks/use-trust-prompt-detector';
 import useCodexUpdatePromptDetector from '@/hooks/use-codex-update-prompt-detector';
 import { useAgentInstallCheck } from '@/hooks/use-agent-install-check';
@@ -126,6 +127,8 @@ const MobileSurfaceView = ({
   const diffSettings = useLayoutStore((state) => state.layout?.diffSettings);
 
   const { theme: terminalTheme } = useTerminalTheme();
+  const configLineHeight = useConfigStore((s) => s.lineHeight);
+  const configLineHeightCustom = useConfigStore((s) => s.lineHeightCustom);
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showTerminal, setShowTerminal] = useState(true);
@@ -243,6 +246,7 @@ const MobileSurfaceView = ({
   const { terminalRef, write, clear, reset, fit, focus, isReady, getBufferText } = useTerminal({
     theme: terminalTheme.colors,
     fontSize: isAgentPanel ? undefined : MOBILE_FONT_SIZE,
+    lineHeight: resolveLineHeight(configLineHeight, configLineHeightCustom),
     onInput: (data) => wsActionsRef.current.sendStdin(data),
     onResize: (cols, rows) => {
       wsActionsRef.current.sendResize(cols, rows);

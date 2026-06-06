@@ -24,6 +24,12 @@
     "fontSizeNormal": "Normal",
     "fontSizeLarge": "Large",
     "fontSizeXLarge": "X-Large",
+    "lineSpacing": "Line Spacing",
+    "lineSpacingDescription": "Adjust the spacing between terminal lines.",
+    "lineSpacingTight": "Tight",
+    "lineSpacingNormal": "Normal",
+    "lineSpacingRelaxed": "Relaxed",
+    "lineSpacingCustom": "Custom",
     "keyboardShortcuts": "Keyboard shortcuts",
     "keyboardShortcutsDescription": "View and customize all keyboard shortcuts.",
     "openShortcuts": "Open"

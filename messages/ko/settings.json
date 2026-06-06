@@ -24,6 +24,12 @@
     "fontSizeNormal": "보통",
     "fontSizeLarge": "크게",
     "fontSizeXLarge": "더크게",
+    "lineSpacing": "줄 간격",
+    "lineSpacingDescription": "터미널 줄 사이의 간격을 조정합니다.",
+    "lineSpacingTight": "좁게",
+    "lineSpacingNormal": "보통",
+    "lineSpacingRelaxed": "넓게",
+    "lineSpacingCustom": "직접 입력",
     "keyboardShortcuts": "키보드 단축키",
     "keyboardShortcutsDescription": "단축키 전체 보기 및 커스터마이즈.",
     "openShortcuts": "열기"

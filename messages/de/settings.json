@@ -24,6 +24,12 @@
     "fontSizeNormal": "Normal",
     "fontSizeLarge": "Groß",
     "fontSizeXLarge": "Sehr groß",
+    "lineSpacing": "Zeilenabstand",
+    "lineSpacingDescription": "Passen Sie den Abstand zwischen Terminalzeilen an.",
+    "lineSpacingTight": "Eng",
+    "lineSpacingNormal": "Normal",
+    "lineSpacingRelaxed": "Weit",
+    "lineSpacingCustom": "Benutzerdefiniert",
     "keyboardShortcuts": "Tastenkürzel",
     "keyboardShortcutsDescription": "Alle Tastenkürzel anzeigen und anpassen.",
     "openShortcuts": "Öffnen"

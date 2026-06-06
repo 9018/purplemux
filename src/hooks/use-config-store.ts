@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { TEditorPreset } from '@/lib/editor-url';
 import type { TToastPosition } from '@/lib/toast-position';
 import type { TGitAskProvider, TNoteSummaryProvider } from '@/lib/config-store';
+import { DEFAULT_LINE_HEIGHT } from '@/lib/terminal-line-height';
 
 export type { TToastPosition } from '@/lib/toast-position';
 export type { TGitAskProvider, TNoteSummaryProvider } from '@/lib/config-store';
@@ -30,6 +31,8 @@ export interface IConfigInitialData {
   hasAuthPassword?: boolean;
   locale?: string;
   fontSize?: string;
+  lineHeight?: string;
+  lineHeightCustom?: number;
   systemResourcesEnabled?: boolean;
   networkAccess?: TNetworkAccess;
   hostEnvLocked?: boolean;
@@ -52,6 +55,8 @@ interface IConfigState {
   locale: string;
   customCSS: string;
   fontSize: string;
+  lineHeight: string;
+  lineHeightCustom: number;
   systemResourcesEnabled: boolean;
   networkAccess: TNetworkAccess;
   hostEnvLocked: boolean;
@@ -73,6 +78,8 @@ interface IConfigState {
   setLocale: (locale: string) => void;
   setCustomCSS: (css: string) => void;
   setFontSize: (fontSize: string) => void;
+  setLineHeight: (lineHeight: string) => void;
+  setLineHeightCustom: (value: number) => void;
   setSystemResourcesEnabled: (enabled: boolean) => void;
   setNetworkAccess: (value: TNetworkAccess) => void;
 }
@@ -93,6 +100,8 @@ const initialConfig = {
   locale: 'en',
   customCSS: '',
   fontSize: 'normal',
+  lineHeight: 'normal',
+  lineHeightCustom: DEFAULT_LINE_HEIGHT,
   systemResourcesEnabled: false,
   networkAccess: 'all' as TNetworkAccess,
   hostEnvLocked: false,
@@ -125,6 +134,8 @@ const useConfigStore = create<IConfigState>((set, get) => ({
   locale: initialConfig.locale,
   customCSS: initialConfig.customCSS,
   fontSize: initialConfig.fontSize,
+  lineHeight: initialConfig.lineHeight,
+  lineHeightCustom: initialConfig.lineHeightCustom,
   systemResourcesEnabled: initialConfig.systemResourcesEnabled,
   networkAccess: initialConfig.networkAccess,
   hostEnvLocked: initialConfig.hostEnvLocked,
@@ -147,6 +158,8 @@ const useConfigStore = create<IConfigState>((set, get) => ({
       locale: data.locale ?? 'en',
       customCSS: data.customCSS ?? '',
       fontSize: data.fontSize ?? 'normal',
+      lineHeight: data.lineHeight ?? 'normal',
+      lineHeightCustom: data.lineHeightCustom ?? DEFAULT_LINE_HEIGHT,
       systemResourcesEnabled: data.systemResourcesEnabled ?? false,
       networkAccess: data.networkAccess ?? 'all',
       hostEnvLocked: data.hostEnvLocked ?? false,
@@ -236,6 +249,17 @@ const useConfigStore = create<IConfigState>((set, get) => ({
   setFontSize: (fontSize) => {
     set({ fontSize });
     saveConfig({ fontSize });
+  },
+
+  setLineHeight: (lineHeight) => {
+    set({ lineHeight });
+    saveConfig({ lineHeight });
+  },
+
+  setLineHeightCustom: (value) => {
+    if (get().lineHeightCustom === value) return;
+    set({ lineHeightCustom: value });
+    saveConfig({ lineHeightCustom: value });
   },
 
   setSystemResourcesEnabled: (enabled) => {

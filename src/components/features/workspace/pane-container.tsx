@@ -13,6 +13,7 @@ import useTerminalWebSocket from '@/hooks/use-terminal-websocket';
 import useTabMetadataStore from '@/hooks/use-tab-metadata-store';
 import { useLayoutStore } from '@/hooks/use-layout';
 import useConfigStore, { type TGitAskProvider } from '@/hooks/use-config-store';
+import { resolveLineHeight } from '@/lib/terminal-line-height';
 import { useShallow } from 'zustand/react/shallow';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
@@ -132,6 +133,8 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
 
   const { theme: terminalTheme } = useTerminalTheme();
   const configFontSize = useConfigStore((s) => s.fontSize);
+  const configLineHeight = useConfigStore((s) => s.lineHeight);
+  const configLineHeightCustom = useConfigStore((s) => s.lineHeightCustom);
   const claudeShowTerminal = useConfigStore((s) => s.claudeShowTerminal);
   const effectiveTerminalCollapsed = activeTab?.terminalCollapsed ?? !claudeShowTerminal;
   const [hasEverConnected, setHasEverConnected] = useState(false);
@@ -381,6 +384,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   const { terminalRef, write, clear, reset, fit, focus, isReady, getBufferText } = useTerminal({
     theme: terminalTheme.colors,
     fontSize: (TERMINAL_FONT_SIZES[configFontSize] ?? TERMINAL_FONT_SIZES.normal)[isAgentPanel ? 'claudeCode' : 'normal'],
+    lineHeight: resolveLineHeight(configLineHeight, configLineHeightCustom),
     onInput: (data) => {
       wsActionsRef.current.sendStdin(data);
     },

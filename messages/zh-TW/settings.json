@@ -24,6 +24,12 @@
     "fontSizeNormal": "正常",
     "fontSizeLarge": "大",
     "fontSizeXLarge": "特大",
+    "lineSpacing": "行距",
+    "lineSpacingDescription": "調整終端機的行距。",
+    "lineSpacingTight": "緊湊",
+    "lineSpacingNormal": "正常",
+    "lineSpacingRelaxed": "寬鬆",
+    "lineSpacingCustom": "自訂",
     "keyboardShortcuts": "鍵盤快捷鍵",
     "keyboardShortcutsDescription": "檢視並自訂所有鍵盤快捷鍵。",
     "openShortcuts": "開啟"

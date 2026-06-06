@@ -24,6 +24,12 @@
     "fontSizeNormal": "標準",
     "fontSizeLarge": "大",
     "fontSizeXLarge": "特大",
+    "lineSpacing": "行間",
+    "lineSpacingDescription": "ターミナルの行間を調整します。",
+    "lineSpacingTight": "狭い",
+    "lineSpacingNormal": "標準",
+    "lineSpacingRelaxed": "広い",
+    "lineSpacingCustom": "カスタム",
     "keyboardShortcuts": "キーボードショートカット",
     "keyboardShortcutsDescription": "すべてのキーボードショートカットの表示とカスタマイズ。",
     "openShortcuts": "開く"

@@ -33,6 +33,8 @@ export interface IConfigData {
   toastPositionMobile?: TToastPosition;
   locale?: string;
   fontSize?: string;
+  lineHeight?: string;
+  lineHeightCustom?: number;
   systemResourcesEnabled?: boolean;
   networkAccess?: TNetworkAccess;
   updatedAt: string;

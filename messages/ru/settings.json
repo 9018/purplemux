@@ -24,6 +24,12 @@
     "fontSizeNormal": "Обычный",
     "fontSizeLarge": "Крупный",
     "fontSizeXLarge": "Очень крупный",
+    "lineSpacing": "Межстрочный интервал",
+    "lineSpacingDescription": "Настройте расстояние между строками терминала.",
+    "lineSpacingTight": "Плотный",
+    "lineSpacingNormal": "Обычный",
+    "lineSpacingRelaxed": "Свободный",
+    "lineSpacingCustom": "Свой",
     "keyboardShortcuts": "Горячие клавиши",
     "keyboardShortcutsDescription": "Просмотр и настройка всех горячих клавиш.",
     "openShortcuts": "Открыть"

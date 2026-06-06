@@ -24,6 +24,12 @@
     "fontSizeNormal": "Normal",
     "fontSizeLarge": "Büyük",
     "fontSizeXLarge": "Çok büyük",
+    "lineSpacing": "Satır Aralığı",
+    "lineSpacingDescription": "Terminal satırları arasındaki boşluğu ayarlayın.",
+    "lineSpacingTight": "Dar",
+    "lineSpacingNormal": "Normal",
+    "lineSpacingRelaxed": "Geniş",
+    "lineSpacingCustom": "Özel",
     "keyboardShortcuts": "Klavye kısayolları",
     "keyboardShortcutsDescription": "Tüm klavye kısayollarını görüntüle ve özelleştir.",
     "openShortcuts": "Aç"

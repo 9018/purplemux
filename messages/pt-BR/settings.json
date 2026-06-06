@@ -24,6 +24,12 @@
     "fontSizeNormal": "Normal",
     "fontSizeLarge": "Grande",
     "fontSizeXLarge": "Muito grande",
+    "lineSpacing": "Espaçamento de linha",
+    "lineSpacingDescription": "Ajuste o espaçamento entre as linhas do terminal.",
+    "lineSpacingTight": "Compacto",
+    "lineSpacingNormal": "Normal",
+    "lineSpacingRelaxed": "Amplo",
+    "lineSpacingCustom": "Personalizado",
     "keyboardShortcuts": "Atalhos de teclado",
     "keyboardShortcutsDescription": "Visualizar e personalizar todos os atalhos de teclado.",
     "openShortcuts": "Abrir"

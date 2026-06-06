@@ -24,6 +24,12 @@
     "fontSizeNormal": "正常",
     "fontSizeLarge": "大",
     "fontSizeXLarge": "特大",
+    "lineSpacing": "行间距",
+    "lineSpacingDescription": "调整终端的行间距。",
+    "lineSpacingTight": "紧凑",
+    "lineSpacingNormal": "正常",
+    "lineSpacingRelaxed": "宽松",
+    "lineSpacingCustom": "自定义",
     "keyboardShortcuts": "键盘快捷键",
     "keyboardShortcutsDescription": "查看和自定义所有键盘快捷键。",
     "openShortcuts": "打开"

@@ -36,6 +36,12 @@ import { cn } from '@/lib/utils';
 import useTerminalTheme from '@/hooks/use-terminal-theme';
 import useConfigStore from '@/hooks/use-config-store';
 import type { TGitAskProvider, TNoteSummaryProvider } from '@/hooks/use-config-store';
+import {
+  LINE_HEIGHT_CUSTOM_MAX,
+  LINE_HEIGHT_CUSTOM_MIN,
+  LINE_HEIGHT_CUSTOM_STEP,
+  clampCustomLineHeight,
+} from '@/lib/terminal-line-height';
 import { TOAST_POSITIONS, type TToastPosition } from '@/lib/toast-position';
 import useWorkspaceStore from '@/hooks/use-workspace-store';
 import { getEndpoint } from '@/hooks/use-web-push';
@@ -101,6 +107,13 @@ const FONT_SIZES = [
   { id: 'x-large', labelKey: 'fontSizeXLarge' },
 ] as const;
 
+const LINE_HEIGHTS = [
+  { id: 'tight', labelKey: 'lineSpacingTight' },
+  { id: 'normal', labelKey: 'lineSpacingNormal' },
+  { id: 'relaxed', labelKey: 'lineSpacingRelaxed' },
+  { id: 'custom', labelKey: 'lineSpacingCustom' },
+] as const;
+
 const GeneralTab = () => {
   const t = useTranslations('settings.general');
   const tc = useTranslations('common');
@@ -109,7 +122,22 @@ const GeneralTab = () => {
   const setLocale = useConfigStore((s) => s.setLocale);
   const fontSize = useConfigStore((s) => s.fontSize);
   const setFontSize = useConfigStore((s) => s.setFontSize);
+  const lineHeight = useConfigStore((s) => s.lineHeight);
+  const setLineHeight = useConfigStore((s) => s.setLineHeight);
+  const lineHeightCustom = useConfigStore((s) => s.lineHeightCustom);
+  const setLineHeightCustom = useConfigStore((s) => s.setLineHeightCustom);
   const setSettingsDialogOpen = useWorkspaceStore((s) => s.setSettingsDialogOpen);
+
+  const [lineHeightDraft, setLineHeightDraft] = useState<string | null>(null);
+  const lineHeightInput = lineHeightDraft ?? String(lineHeightCustom);
+
+  const commitLineHeightCustom = () => {
+    const parsed = Number(lineHeightDraft);
+    setLineHeightDraft(null);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = clampCustomLineHeight(Math.round(parsed * 100) / 100);
+    if (clamped !== lineHeightCustom) setLineHeightCustom(clamped);
+  };
   const setCheatSheetOpen = useWorkspaceStore((s) => s.setCheatSheetOpen);
 
   const handleThemeChange = (value: string) => {
@@ -180,6 +208,38 @@ const GeneralTab = () => {
             </Button>
           ))}
         </ButtonGroup>
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-medium">{t('lineSpacing')}</p>
+          <p className="text-sm text-muted-foreground">{t('lineSpacingDescription')}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {lineHeight === 'custom' && (
+            <Input
+              type="number"
+              min={LINE_HEIGHT_CUSTOM_MIN}
+              max={LINE_HEIGHT_CUSTOM_MAX}
+              step={LINE_HEIGHT_CUSTOM_STEP}
+              value={lineHeightInput}
+              onChange={(e) => setLineHeightDraft(e.target.value)}
+              onBlur={commitLineHeightCustom}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              className="h-8 w-20 text-sm"
+              aria-label={t('lineSpacingCustom')}
+            />
+          )}
+          <ButtonGroup>
+            {LINE_HEIGHTS.map((s) => (
+              <Button key={s.id} variant={lineHeight === s.id ? 'default' : 'outline'} size="sm" onClick={() => setLineHeight(s.id)}>
+                {t(s.labelKey)}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

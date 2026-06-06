@@ -15,6 +15,7 @@ import isElectron from "@/hooks/use-is-electron";
 interface IUseTerminalOptions {
   theme?: ITerminalThemeColors;
   fontSize?: number;
+  lineHeight?: number;
   onInput?: (data: string) => void;
   onResize?: (cols: number, rows: number) => void;
   onTitleChange?: (title: string) => void;
@@ -24,6 +25,7 @@ interface IUseTerminalOptions {
 const COPY_TOAST_ID = 'terminal-copy';
 
 const DEFAULT_FONT_SIZE = 12;
+const DEFAULT_LINE_HEIGHT = 1.1;
 
 const ALLOWED_LINK_PROTOCOLS = ['http:', 'https:'];
 
@@ -67,7 +69,7 @@ const loadFonts = () => {
   return fontLoadPromise;
 };
 
-const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, onInput, onResize, onTitleChange, customKeyEventHandler }: IUseTerminalOptions = {}) => {
+const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, lineHeight = DEFAULT_LINE_HEIGHT, onInput, onResize, onTitleChange, customKeyEventHandler }: IUseTerminalOptions = {}) => {
   const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(null);
   const terminalRef = useCallback((node: HTMLDivElement | null) => {
     setContainerNode(node);
@@ -79,11 +81,11 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, onInput, onResize, o
   const [isReady, setIsReady] = useState(false);
   const t = useTranslations('terminal');
 
-  const callbacksRef = useRef({ theme, fontSize, onInput, onResize, onTitleChange, customKeyEventHandler, t });
+  const callbacksRef = useRef({ theme, fontSize, lineHeight, onInput, onResize, onTitleChange, customKeyEventHandler, t });
 
   useEffect(() => {
-    callbacksRef.current = { theme, fontSize, onInput, onResize, onTitleChange, customKeyEventHandler, t };
-  }, [theme, fontSize, onInput, onResize, onTitleChange, customKeyEventHandler, t]);
+    callbacksRef.current = { theme, fontSize, lineHeight, onInput, onResize, onTitleChange, customKeyEventHandler, t };
+  }, [theme, fontSize, lineHeight, onInput, onResize, onTitleChange, customKeyEventHandler, t]);
 
   const write = useCallback((data: Uint8Array) => {
     writeQueueRef.current.push(data);
@@ -171,7 +173,7 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, onInput, onResize, o
         fontWeight: "400",
         fontWeightBold: "700",
         fontSize: callbacksRef.current.fontSize,
-        lineHeight: 1.1,
+        lineHeight: callbacksRef.current.lineHeight,
         letterSpacing: 0,
         scrollback: 5000,
         cursorBlink: false,
@@ -329,6 +331,15 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, onInput, onResize, o
       callbacksRef.current.onResize?.(terminal.cols, terminal.rows);
     }
   }, [fontSize]);
+
+  useEffect(() => {
+    const terminal = terminalInstance.current;
+    if (terminal && lineHeight) {
+      terminal.options.lineHeight = lineHeight;
+      fitAddonRef.current?.fit();
+      callbacksRef.current.onResize?.(terminal.cols, terminal.rows);
+    }
+  }, [lineHeight]);
 
   return { terminalRef, write, clear, reset, fit, focus, isReady, getBufferText };
 };
