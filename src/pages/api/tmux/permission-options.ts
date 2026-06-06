@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { hasSession } from '@/lib/tmux';
 import { capturePaneAtWidth } from '@/lib/capture-at-width';
 import { createLogger } from '@/lib/logger';
+import { parseChoiceOptions, parsePermissionOptions } from '@/lib/permission-prompt';
 
 const log = createLogger('tmux');
-import { parsePermissionOptions } from '@/lib/permission-prompt';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'GET') {
@@ -28,7 +28,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ options: [] });
     }
 
-    const { options } = parsePermissionOptions(content);
+    const permissionOptions = parsePermissionOptions(content);
+    const { options } = permissionOptions.options.length > 0
+      ? permissionOptions
+      : parseChoiceOptions(content);
     const isBypassPrompt = content.includes('Bypass Permissions');
     return res.status(200).json({ options, ...(isBypassPrompt && { isBypassPrompt: true }) });
   } catch (err) {

@@ -15,7 +15,7 @@ export const capturePaneAtWidth = async (
 ): Promise<string | null> => {
   const current = getActiveSessionSize(sessionName);
 
-  if (current && current.cols > NARROW_COLS_THRESHOLD) {
+  if (current && current.cols > NARROW_COLS_THRESHOLD && current.rows >= rows) {
     return capturePaneContentWithHistory(sessionName, SCROLLBACK_LINES);
   }
 
@@ -23,13 +23,16 @@ export const capturePaneAtWidth = async (
   if (!orig) return capturePaneContent(sessionName);
 
   try {
-    resizeSessionPty(sessionName, cols, rows);
+    resizeSessionPty(
+      sessionName,
+      Math.max(current?.cols ?? 0, cols),
+      Math.max(current?.rows ?? 0, rows),
+    );
     await sleep(PRE_CAPTURE_DELAY_MS);
-    const result = await capturePaneContent(sessionName);
+    return await capturePaneContent(sessionName);
+  } finally {
     resizeSessionPty(sessionName, orig.cols, orig.rows);
     await sleep(POST_RESTORE_DELAY_MS);
-    return result;
-  } finally {
     resumeSession(sessionName);
   }
 };

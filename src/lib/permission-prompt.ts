@@ -12,7 +12,8 @@ const INDICATOR_RE = /^\s*(?:[❯›>]\s+)?(.+)$/;
 const FOCUSED_RE = /^\s*[❯›>]\s+/;
 const NUMBER_PREFIX_RE = /^\d+\.\s+/;
 // 좁은 터미널에서 "2. Yes..."가 "2Yes..."로 렌더되는 wrap 아티팩트까지 허용하기 위해 period/space를 optional로 둠
-const NUMBERED_LINE_RE = /^\s*([❯›>])?\s*(\d+)\.?\s*(\S.*)$/;
+const NUMBERED_LINE_RE = /^\s*([❯›>])?\s*(?:[↓↑]\s*)?(\d+)\.?\s*(\S.*)$/;
+const SEPARATOR_LINE_RE = /^[\s─━\-]+$/;
 
 const stripPrefix = (o: string) => o.replace(NUMBER_PREFIX_RE, '');
 const hasOption = (options: string[], prefix: string) =>
@@ -143,6 +144,49 @@ const parseKeywordOptions = (lines: string[]): { options: string[]; focusedIndex
   }
 
   return { options, focusedIndex };
+};
+
+export const parseChoiceOptions = (paneContent: string): { options: string[]; focusedIndex: number } => {
+  const lines = paneContent.split('\n');
+  const blocks: { options: string[]; focusedIndex: number }[] = [];
+  let options: string[] = [];
+  let focusedIndex = -1;
+  let lastNumber = 0;
+
+  const flush = () => {
+    if (options.length >= 2 && focusedIndex >= 0) {
+      blocks.push({ options: options.slice(), focusedIndex });
+    }
+    options = [];
+    focusedIndex = -1;
+    lastNumber = 0;
+  };
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    if (SEPARATOR_LINE_RE.test(line)) continue;
+
+    const match = line.match(NUMBERED_LINE_RE);
+    if (match) {
+      const marker = match[1];
+      const num = Number(match[2]);
+      const rest = match[3].trim();
+
+      if (options.length > 0 && num <= lastNumber) flush();
+      if (rest.length > 0) {
+        if (marker) focusedIndex = options.length;
+        options.push(`${num}. ${normalizeOption(rest)}`);
+        lastNumber = num;
+        continue;
+      }
+    }
+
+    if (options.length > 0 && !/^\s+\S/.test(line)) flush();
+  }
+  flush();
+
+  const best = blocks[blocks.length - 1];
+  return best ?? { options: [], focusedIndex: 0 };
 };
 
 export const parsePermissionOptions = (paneContent: string): { options: string[]; focusedIndex: number } => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hasPermissionPrompt, parsePermissionOptions } from '@/lib/permission-prompt';
+import { hasPermissionPrompt, parseChoiceOptions, parsePermissionOptions } from '@/lib/permission-prompt';
 
 describe('parsePermissionOptions', () => {
   it('numbered Yes/No 프롬프트에서 포커스된 옵션을 인식한다', () => {
@@ -128,5 +128,53 @@ describe('hasPermissionPrompt', () => {
 
   it('프롬프트가 없으면 false를 반환한다', () => {
     expect(hasPermissionPrompt('just some logs\nmore logs')).toBe(false);
+  });
+});
+
+describe('parseChoiceOptions', () => {
+  it('Claude AskUserQuestion numbered menu를 일반 선택지로 파싱한다', () => {
+    const pane = [
+      ' ☐ 변경사항',
+      '',
+      '커밋 안 된 변경사항(pane-container.tsx, capture-at-width.ts)을 어떻게 처리할까요?',
+      '',
+      '❯ 1. 내용 먼저 리뷰',
+      '     두 파일의 diff를 분석해서 무엇이 바뀌었는지, 문제는 없는지 설명합니다.',
+      '  2. 바로 커밋',
+      '     변경사항을 영어 커밋 메시지로 정리해 커밋합니다.',
+      '  3. 그대로 두기',
+      '     아무것도 하지 않고 다른 작업을 진행합니다.',
+      '  4. Type something.',
+      '────────────────────────────────────────────────────────────────',
+      '  5. Chat about this',
+    ].join('\n');
+
+    expect(parsePermissionOptions(pane)).toEqual({ options: [], focusedIndex: 0 });
+    expect(parseChoiceOptions(pane)).toEqual({
+      options: [
+        '1. 내용 먼저 리뷰',
+        '2. 바로 커밋',
+        '3. 그대로 두기',
+        '4. Type something.',
+        '5. Chat about this',
+      ],
+      focusedIndex: 0,
+    });
+  });
+
+  it('중간 번호가 보이지 않아도 실제 번호 prefix를 유지한다', () => {
+    const pane = [
+      '❯ 1. 첫 번째',
+      '  2. 두 번째',
+      '↓ 4. 네 번째',
+      '  6. Chat about this',
+    ].join('\n');
+
+    expect(parseChoiceOptions(pane).options).toEqual([
+      '1. 첫 번째',
+      '2. 두 번째',
+      '4. 네 번째',
+      '6. Chat about this',
+    ]);
   });
 });

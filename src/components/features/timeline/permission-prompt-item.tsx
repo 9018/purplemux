@@ -24,12 +24,17 @@ const fetchPermissionOptions = async (session: string): Promise<string[]> => {
   }
 };
 
-const sendSelection = async (session: string, optionIndex: number): Promise<boolean> => {
+const optionInput = (label: string, optionIndex: number): string => {
+  const match = label.match(/^(\d+)\.\s+/);
+  return match?.[1] ?? String(optionIndex + 1);
+};
+
+const sendSelection = async (session: string, optionIndex: number, label: string): Promise<boolean> => {
   try {
     const res = await fetch('/api/tmux/send-input', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session, input: String(optionIndex + 1) }),
+      body: JSON.stringify({ session, input: optionInput(label, optionIndex) }),
     });
     return res.ok;
   } catch {
@@ -100,7 +105,7 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
       if (localSelected !== null) return;
 
       setLocalSelected(idx);
-      const ok = await sendSelection(sessionName, idx);
+      const ok = await sendSelection(sessionName, idx, options[idx] ?? '');
       if (!ok) {
         setLocalSelected(null);
         toast.error(t('selectionFailed'));
@@ -111,7 +116,7 @@ const PermissionPromptItem = ({ sessionName, tabId, silent = false }: IPermissio
       }
       setDismissed(true);
     },
-    [sessionName, localSelected, t, tabId, lastEventSeq],
+    [sessionName, localSelected, options, t, tabId, lastEventSeq],
   );
 
   const renderContent = () => {

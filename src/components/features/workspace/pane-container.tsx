@@ -98,6 +98,7 @@ const TERMINAL_FONT_SIZES: Record<string, { normal: number; claudeCode: number }
   large: { normal: 14, claudeCode: 12 },
   'x-large': { normal: 16, claudeCode: 14 },
 };
+const MIN_COLLAPSED_AGENT_ROWS = 40;
 
 const EMPTY_TABS: ITab[] = [];
 
@@ -166,6 +167,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     return data;
   }, []);
   const effectiveTerminalCollapsed = activeTab?.terminalCollapsed ?? !claudeShowTerminal;
+  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(effectiveTerminalCollapsed);
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [sessionSwitching, setSessionSwitching] = useState(false);
   const sessionSwitchTimerRef = useRef(0);
@@ -211,6 +213,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   }, []);
   const termActionsRef = useRef<ITermActions>(NOOP_TERM_ACTIONS);
   const wsActionsRef = useRef<IWsActions>(NOOP_WS_ACTIONS);
+  const lastVisibleTerminalSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const connectedSessionRef = useRef<string | null>(null);
   const prevConnectedTabIdRef = useRef<string | null>(null);
   const closingTabIdRef = useRef<string | null>(null);
@@ -410,6 +413,23 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     return true;
   }, []);
 
+  const normalizeTerminalSize = useCallback((cols: number, rows: number, collapsed = isTerminalCollapsed): { cols: number; rows: number } => {
+    if (!isAgentPanel) return { cols, rows };
+    if (!collapsed) {
+      lastVisibleTerminalSizeRef.current = { cols, rows };
+      return { cols, rows };
+    }
+    return {
+      cols,
+      rows: Math.max(rows, lastVisibleTerminalSizeRef.current?.rows ?? 0, MIN_COLLAPSED_AGENT_ROWS),
+    };
+  }, [isAgentPanel, isTerminalCollapsed]);
+
+  const sendEffectiveResize = useCallback((cols: number, rows: number, collapsed?: boolean) => {
+    const size = normalizeTerminalSize(cols, rows, collapsed);
+    wsActionsRef.current.sendResize(size.cols, size.rows);
+  }, [normalizeTerminalSize]);
+
   const { terminalRef, write, clear, reset, fit, focus, isReady, getBufferText } = useTerminal({
     theme: terminalTheme.colors,
     fontSize: (TERMINAL_FONT_SIZES[configFontSize] ?? TERMINAL_FONT_SIZES.normal)[isAgentPanel ? 'claudeCode' : 'normal'],
@@ -417,7 +437,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     onInput: (data) => {
       wsActionsRef.current.sendStdin(applyArmedModifier(data));
     },
-    onResize: (cols, rows) => wsActionsRef.current.sendResize(cols, rows),
+    onResize: sendEffectiveResize,
     onTitleChange: (title) => {
       const tabId = activeTabIdRef.current;
       if (!tabId) return;
@@ -536,7 +556,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
       const tabId = activeTabIdRef.current;
       if (tabId) useTabStore.getState().setTerminalConnected(tabId, true);
       const { cols, rows } = termActionsRef.current.fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows);
       if (isFocusedRef.current) {
         termActionsRef.current.focus();
       }
@@ -586,7 +606,13 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
 
     connectedSessionRef.current = tab.sessionName;
     const { cols, rows } = fit();
-    connect(tab.sessionName, cols, rows);
+    const isAgentTab = tab.panelType === 'claude-code' || tab.panelType === 'codex-cli';
+    const initialSize = normalizeTerminalSize(
+      cols,
+      rows,
+      isAgentTab ? (tab.terminalCollapsed ?? !claudeShowTerminal) : false,
+    );
+    connect(tab.sessionName, initialSize.cols, initialSize.rows);
   }, [isReady, activeTabId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -612,7 +638,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     if (!isReady || status !== 'connected') return;
     const timer = setTimeout(() => {
       const { cols, rows } = fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows);
     }, 150);
     return () => clearTimeout(timer);
   }, [paneCount]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -621,7 +647,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     if (!isReady || status !== 'connected') return;
     const timer = setTimeout(() => {
       const { cols, rows } = fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows);
     }, 300);
     return () => clearTimeout(timer);
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -629,7 +655,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   useEffect(() => {
     if (isFocused && isReady && status === 'connected') {
       const { cols, rows } = fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows);
       const targetTerminal = clickedTerminalRef.current;
       clickedTerminalRef.current = false;
       if (targetTerminal || !isAgentPanel || !agentInputVisible) {
@@ -1017,7 +1043,6 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   }, [agentProcess, status, sendStdin, markAgentLaunch]);
 
   const splitGroupRef = useRef<GroupImperativeHandle>(null);
-  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
   const suppressTerminalSaveRef = useRef(false);
 
   const handleToggleTerminal = useCallback(() => {
@@ -1040,9 +1065,9 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
       suppressTerminalSaveRef.current = false;
       if (!isReady || status !== 'connected') return;
       const { cols, rows } = fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows, next);
     }, 150);
-  }, [isTerminalCollapsed, isReady, status, fit, isAgentPanel, activeTabId, paneId, activeTab?.terminalRatio, updateTabTerminalLayout]);
+  }, [isTerminalCollapsed, isReady, status, fit, isAgentPanel, activeTabId, paneId, activeTab?.terminalRatio, updateTabTerminalLayout, sendEffectiveResize]);
 
   useEffect(() => {
     if (!splitGroupRef.current) return;
@@ -1064,7 +1089,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
       suppressTerminalSaveRef.current = false;
       if (!isReady || status !== 'connected') return;
       const { cols, rows } = fit();
-      wsActionsRef.current.sendResize(cols, rows);
+      sendEffectiveResize(cols, rows, isAgentPanel ? effectiveTerminalCollapsed : false);
       if (isFocused) {
         if (isAgentPanel) {
           if (agentInputVisible) deferredFocusInput(() => focusInputRef.current?.());
