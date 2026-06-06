@@ -3,7 +3,7 @@ import { SendHorizontal } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CTRL_TOGGLE, SHIFT_TOGGLE, TERMINAL_KEYS, type IKeyDef } from '@/lib/terminal-keys';
+import { CTRL_TOGGLE, SHIFT_TOGGLE, TERMINAL_KEYS, toCtrlChar, type IKeyDef } from '@/lib/terminal-keys';
 
 interface IMobileTerminalToolbarProps {
   sendStdin: (data: string) => void;
@@ -47,10 +47,9 @@ const MobileTerminalToolbar = ({ sendStdin, terminalConnected }: IMobileTerminal
     (e: ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
       if (ctrlActive && newValue.length === value.length + 1) {
-        const typed = newValue[newValue.length - 1];
-        const code = typed.toLowerCase().charCodeAt(0);
-        if (code >= 97 && code <= 122) {
-          sendStdin(String.fromCharCode(code - 96));
+        const ctrl = toCtrlChar(newValue[newValue.length - 1]);
+        if (ctrl) {
+          sendStdin(ctrl);
           setCtrlActive(false);
           return;
         }

@@ -10,14 +10,15 @@ const OPTION_KEYWORDS = [
 ];
 const INDICATOR_RE = /^\s*(?:[❯›>]\s+)?(.+)$/;
 const FOCUSED_RE = /^\s*[❯›>]\s+/;
-const NUMBER_PREFIX_RE = /^\d+\.\s+/;
+const NUMBER_PREFIX_RE = /^(\d+)\.\s+/;
 // 좁은 터미널에서 "2. Yes..."가 "2Yes..."로 렌더되는 wrap 아티팩트까지 허용하기 위해 period/space를 optional로 둠
 const NUMBERED_LINE_RE = /^\s*([❯›>])?\s*(?:[↓↑]\s*)?(\d+)\.?\s*(\S.*)$/;
 const SEPARATOR_LINE_RE = /^[\s─━\-]+$/;
 
-const stripPrefix = (o: string) => o.replace(NUMBER_PREFIX_RE, '');
+export const stripNumberPrefix = (label: string) => label.replace(NUMBER_PREFIX_RE, '');
+export const optionNumber = (label: string): string | null => label.match(NUMBER_PREFIX_RE)?.[1] ?? null;
 const hasOption = (options: string[], prefix: string) =>
-  options.some((o) => stripPrefix(o).startsWith(prefix));
+  options.some((o) => stripNumberPrefix(o).startsWith(prefix));
 const leadingSpaces = (line: string): number => line.match(/^\s*/)?.[0].length ?? 0;
 
 // tmux pane capture가 손상된 경우 원본 옵션 텍스트를 복원한다.
@@ -133,7 +134,7 @@ const parseKeywordOptions = (lines: string[]): { options: string[]; focusedIndex
     const match = line.match(INDICATOR_RE);
     if (!match) continue;
     const label = match[1].trim();
-    const stripped = stripPrefix(label);
+    const stripped = stripNumberPrefix(label);
     const isKeyword = OPTION_KEYWORDS.some((kw) => stripped.startsWith(kw));
 
     if (isKeyword) {

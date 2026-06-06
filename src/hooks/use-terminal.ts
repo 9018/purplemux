@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { ITerminalThemeColors } from "@/lib/terminal-themes";
 import { createMultilineUrlLinkProvider } from "@/lib/multiline-url-link-provider";
 import { copyToClipboard } from "@/lib/clipboard";
+import { DEFAULT_LINE_HEIGHT } from "@/lib/terminal-line-height";
 import isElectron from "@/hooks/use-is-electron";
 
 interface IUseTerminalOptions {
@@ -25,7 +26,6 @@ interface IUseTerminalOptions {
 const COPY_TOAST_ID = 'terminal-copy';
 
 const DEFAULT_FONT_SIZE = 12;
-const DEFAULT_LINE_HEIGHT = 1.1;
 
 const ALLOWED_LINK_PROTOCOLS = ['http:', 'https:'];
 
@@ -332,21 +332,12 @@ const useTerminal = ({ theme, fontSize = DEFAULT_FONT_SIZE, lineHeight = DEFAULT
 
   useEffect(() => {
     const terminal = terminalInstance.current;
-    if (terminal && fontSize) {
-      terminal.options.fontSize = fontSize;
-      fitAddonRef.current?.fit();
-      callbacksRef.current.onResize?.(terminal.cols, terminal.rows);
-    }
-  }, [fontSize]);
-
-  useEffect(() => {
-    const terminal = terminalInstance.current;
-    if (terminal && lineHeight) {
-      terminal.options.lineHeight = lineHeight;
-      fitAddonRef.current?.fit();
-      callbacksRef.current.onResize?.(terminal.cols, terminal.rows);
-    }
-  }, [lineHeight]);
+    if (!terminal || !fontSize || !lineHeight) return;
+    terminal.options.fontSize = fontSize;
+    terminal.options.lineHeight = lineHeight;
+    fitAddonRef.current?.fit();
+    callbacksRef.current.onResize?.(terminal.cols, terminal.rows);
+  }, [fontSize, lineHeight]);
 
   return { terminalRef, write, clear, reset, fit, focus, isReady, getBufferText };
 };

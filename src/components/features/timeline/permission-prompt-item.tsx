@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import useTabStore from '@/hooks/use-tab-store';
 import { ackNotificationInput } from '@/hooks/use-agent-status';
+import { optionNumber, stripNumberPrefix } from '@/lib/permission-prompt';
 
 interface IPermissionPromptItemProps {
   sessionName: string;
@@ -24,10 +25,8 @@ const fetchPermissionOptions = async (session: string): Promise<string[]> => {
   }
 };
 
-const optionInput = (label: string, optionIndex: number): string => {
-  const match = label.match(/^(\d+)\.\s+/);
-  return match?.[1] ?? String(optionIndex + 1);
-};
+const optionInput = (label: string, optionIndex: number): string =>
+  optionNumber(label) ?? String(optionIndex + 1);
 
 const sendSelection = async (session: string, optionIndex: number, label: string): Promise<boolean> => {
   try {
@@ -42,7 +41,6 @@ const sendSelection = async (session: string, optionIndex: number, label: string
   }
 };
 
-const stripNumberPrefix = (label: string) => label.replace(/^\d+\.\s+/, '');
 
 const RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000];
 
