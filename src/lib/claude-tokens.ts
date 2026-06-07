@@ -9,6 +9,7 @@ interface IModelPricing {
 }
 
 const MODEL_PRICING: Record<string, IModelPricing> = {
+  'opus-4-8': { input: 5, output: 25, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5 },
   'opus-4-7': { input: 5, output: 25, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5 },
   'opus-4-6': { input: 5, output: 25, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5 },
   'opus-4-5': { input: 5, output: 25, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5 },
@@ -25,12 +26,14 @@ const MODEL_PRICING: Record<string, IModelPricing> = {
   'opus-3': { input: 15, output: 75, cacheWrite5m: 18.75, cacheWrite1h: 30, cacheRead: 1.5 },
 };
 
-// 1.25x input / 2x input / 0.1x input (prompt caching multipliers applied on top of fast rates)
-const OPUS_46_FAST_PRICING: IModelPricing = {
-  input: 30, output: 150, cacheWrite5m: 37.5, cacheWrite1h: 60, cacheRead: 3,
+// Fast-mode rates per model. cacheWrite5m/1h/cacheRead follow 1.25x / 2x / 0.1x of input.
+const FAST_PRICING: Record<string, IModelPricing> = {
+  'opus-4-8': { input: 10, output: 50, cacheWrite5m: 12.5, cacheWrite1h: 20, cacheRead: 1 },
+  'opus-4-6': { input: 30, output: 150, cacheWrite5m: 37.5, cacheWrite1h: 60, cacheRead: 3 },
 };
 
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'opus-4-8': 'Opus 4.8',
   'opus-4-7': 'Opus 4.7',
   'opus-4-6': 'Opus 4.6',
   'opus-4-5': 'Opus 4.5',
@@ -92,8 +95,8 @@ export const calculateCost = (
   const key = extractModelKey(modelId);
   if (!key) return null;
 
-  const pricing = (isFastMode && key === 'opus-4-6')
-    ? OPUS_46_FAST_PRICING
+  const pricing = (isFastMode && FAST_PRICING[key])
+    ? FAST_PRICING[key]
     : MODEL_PRICING[key];
   if (!pricing) return null;
 

@@ -25,6 +25,7 @@ interface ITokenSectionProps {
 }
 
 const MODEL_COLOR_MAP: Record<string, string> = {
+  'claude-opus-4-8': 'var(--ui-blue)',
   'claude-opus-4-7': 'var(--ui-purple)',
   'claude-opus-4-6': 'var(--ui-pink)',
   'claude-opus-4-5': 'var(--ui-red)',
