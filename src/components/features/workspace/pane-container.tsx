@@ -346,11 +346,11 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   });
 
   useEffect(() => {
-    if (!activeTabId || !isClaudeCode) return;
+    if (!activeTabId || !isAgentPanel) return;
     if (isFocused && isCliIdle(claudeCliState)) {
       dismissStatusTab(activeTabId);
     }
-  }, [activeTabId, claudeCliState, isClaudeCode, isFocused]);
+  }, [activeTabId, claudeCliState, isAgentPanel, isFocused]);
 
   useEffect(() => {
     if (activeTabId && isFocused) {
