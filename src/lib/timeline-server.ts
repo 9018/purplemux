@@ -36,7 +36,10 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('timeline');
 
 const HEARTBEAT_INTERVAL = 30_000;
-const HEARTBEAT_TIMEOUT = 90_000;
+const HEARTBEAT_TIMEOUT = Math.max(
+  90_000,
+  Number(process.env.PURPLEMUX_HEARTBEAT_TIMEOUT_MS) || 90_000,
+);
 const DEBOUNCE_MS = 50;
 const BACKPRESSURE_LIMIT = 1024 * 1024;
 const MAX_WATCHERS = 32;
