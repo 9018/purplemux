@@ -14,10 +14,10 @@
 
 **Files:**
 - Create: `src/lib/terminal-input.ts`
-- Test: `src/lib/terminal-input.test.ts`
+- Test: `tests/unit/lib/terminal-input.test.ts`
 
 - [ ] Write tests asserting that a single line is unchanged and any text containing `\n` or `\r` is wrapped with `\x1b[200~` and `\x1b[201~`.
-- [ ] Run `pnpm test src/lib/terminal-input.test.ts` and confirm it fails because the utility does not exist.
+- [ ] Run `pnpm test tests/unit/lib/terminal-input.test.ts` and confirm it fails because the utility does not exist.
 - [ ] Implement `encodeTerminalPaste(text: string): string` with no browser dependencies.
 - [ ] Re-run the focused test and confirm it passes.
 
@@ -26,8 +26,8 @@
 **Files:**
 - Modify: `src/lib/terminal-keys.ts`
 - Create: `src/lib/terminal-key-bar-visibility.ts`
-- Test: `src/lib/terminal-keys.test.ts`
-- Test: `src/lib/terminal-key-bar-visibility.test.ts`
+- Test: `tests/unit/lib/terminal-keys.test.ts`
+- Test: `tests/unit/lib/terminal-key-bar-visibility.test.ts`
 
 - [ ] Write failing tests for Home (`\x1b[H`), End (`\x1b[F`), PgUp (`\x1b[5~`), PgDn (`\x1b[6~`), Backspace (`\x7f`), Ctrl+C (`\x03`), Ctrl+D (`\x04`), and Ctrl+Z (`\x1a`).
 - [ ] Write failing tests proving a touch-device Chat agent with an expanded terminal shows the bar, a collapsed agent terminal does not, and `never` overrides all panels.
@@ -66,4 +66,3 @@
 - [ ] Restart `purplemux-8022.service` and `purplemux-18022.service`.
 - [ ] Use mobile Playwright against port 18022 to verify requested controls, Paste fallback, WebSocket health, and console health.
 - [ ] Confirm both services are enabled, active, and listening.
-

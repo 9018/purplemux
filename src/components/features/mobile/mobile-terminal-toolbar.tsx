@@ -4,6 +4,8 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CTRL_TOGGLE, SHIFT_TOGGLE, TERMINAL_KEYS, toCtrlChar, type IKeyDef } from '@/lib/terminal-keys';
+import { sendTerminalText } from '@/lib/terminal-input';
+import TerminalPasteButton from '@/components/features/workspace/terminal-paste-button';
 
 interface IMobileTerminalToolbarProps {
   sendStdin: (data: string) => void;
@@ -38,9 +40,12 @@ const MobileTerminalToolbar = ({ sendStdin, terminalConnected }: IMobileTerminal
 
   const handleSend = useCallback(() => {
     if (!terminalConnected) return;
-    if (value) sendStdin(value);
+    if (value) {
+      sendTerminalText(sendStdin, value);
+      setValue('');
+      return;
+    }
     sendStdin('\r');
-    setValue('');
   }, [value, sendStdin, terminalConnected]);
 
   const handleChange = useCallback(
@@ -110,6 +115,7 @@ const MobileTerminalToolbar = ({ sendStdin, terminalConnected }: IMobileTerminal
             overflowY: 'auto',
           }}
         />
+        <TerminalPasteButton sendStdin={sendStdin} disabled={!terminalConnected} />
         <Button
           variant="ghost"
           size="sm"

@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { CTRL_TOGGLE, SHIFT_TOGGLE, TERMINAL_KEYS, type IKeyDef } from '@/lib/terminal-keys';
+import TerminalPasteButton from '@/components/features/workspace/terminal-paste-button';
 
 const NERD_FONT_STYLE = { fontFamily: 'MesloLGLDZ, monospace' } as const;
 
@@ -9,9 +10,17 @@ interface ITerminalKeyBarProps {
   shiftActive: boolean;
   setCtrlActive: (active: boolean) => void;
   setShiftActive: (active: boolean) => void;
+  terminalConnected: boolean;
 }
 
-const TerminalKeyBar = ({ sendStdin, ctrlActive, shiftActive, setCtrlActive, setShiftActive }: ITerminalKeyBarProps) => {
+const TerminalKeyBar = ({
+  sendStdin,
+  ctrlActive,
+  shiftActive,
+  setCtrlActive,
+  setShiftActive,
+  terminalConnected,
+}: ITerminalKeyBarProps) => {
   const handleKey = (key: IKeyDef) => {
     if (key.value === CTRL_TOGGLE) {
       setCtrlActive(!ctrlActive);
@@ -31,6 +40,7 @@ const TerminalKeyBar = ({ sendStdin, ctrlActive, shiftActive, setCtrlActive, set
       className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border bg-background px-3 py-2"
       style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
     >
+      <TerminalPasteButton sendStdin={sendStdin} disabled={!terminalConnected} compact />
       {TERMINAL_KEYS.map((key) => (
         <button
           key={key.label}

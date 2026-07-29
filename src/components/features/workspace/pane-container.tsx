@@ -16,6 +16,7 @@ import useConfigStore, { type TGitAskProvider } from '@/hooks/use-config-store';
 import useIsMobileDevice from '@/hooks/use-is-mobile-device';
 import { resolveLineHeight } from '@/lib/terminal-line-height';
 import { toCtrlChar } from '@/lib/terminal-keys';
+import { shouldShowTerminalKeyBar } from '@/lib/terminal-key-bar-visibility';
 import TerminalKeyBar from '@/components/features/workspace/terminal-key-bar';
 import { useShallow } from 'zustand/react/shallow';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
@@ -1188,10 +1189,13 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     !noTabs &&
     (!isReady || !hasEverConnected);
 
-  const showKeyBar =
-    activePanelType === 'terminal' &&
-    !noTabs &&
-    (keyBarMode === 'always' || (keyBarMode === 'auto' && isTouchDevice));
+  const showKeyBar = shouldShowTerminalKeyBar({
+    panelType: activePanelType,
+    hasTabs: !noTabs,
+    keyBarMode,
+    isTouchDevice,
+    terminalCollapsed: isTerminalCollapsed,
+  });
 
   return (
     <div
@@ -1447,6 +1451,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   shiftActive={shiftArmed}
                   setCtrlActive={setCtrlArmed}
                   setShiftActive={setShiftArmed}
+                  terminalConnected={status === 'connected'}
                 />
               )}
             </div>
