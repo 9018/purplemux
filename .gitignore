@@ -54,3 +54,5 @@ next-env.d.ts
 
 .claude/scheduled_tasks.lock
 
+# isolated feature worktrees
+.worktrees/
