@@ -2,6 +2,7 @@ import type { TPanelType } from '@/types/terminal';
 
 const SHELL_NAMES = new Set(['zsh', 'bash', 'fish', 'sh', '-zsh', '-bash', '-fish', '-sh']);
 const CODEX_PROCESS_NAMES = new Set(['codex', 'Codex', 'node']);
+const PI_PROCESS_NAMES = new Set(['pi', 'Pi']);
 
 const extractBasename = (path: string): string => {
   if (path === '~' || path === '/') return path;
@@ -25,6 +26,7 @@ export const isShellProcess = (raw: string): boolean => {
 
 const normalizeProcessTitle = (title: string, panelType?: TPanelType): string => {
   if (panelType === 'codex-cli' && CODEX_PROCESS_NAMES.has(title)) return 'Codex';
+  if (panelType === 'pi-cli' && PI_PROCESS_NAMES.has(title)) return 'Pi';
   return title;
 };
 

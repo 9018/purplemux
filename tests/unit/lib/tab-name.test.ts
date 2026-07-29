@@ -11,6 +11,10 @@ describe('tab names', () => {
     expect(defaultTabNameForPanelType('codex-cli')).toBe('');
   });
 
+  it('uses Pi as the default Pi agent tab name', () => {
+    expect(defaultTabNameForPanelType('pi-cli')).toBe('Pi');
+  });
+
   it('clears a session list default name when switching to Codex', () => {
     expect(resolveTabNameForPanelTypeChange('Session List', 'agent-sessions', 'codex-cli')).toBe('');
   });

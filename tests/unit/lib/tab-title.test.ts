@@ -17,4 +17,8 @@ describe('formatTabTitle', () => {
   it('does not rename node outside codex tabs', () => {
     expect(formatTabTitle('node|/Users/me/project', 'terminal')).toBe('node');
   });
+
+  it('shows Pi for pi agent tabs', () => {
+    expect(formatTabTitle('pi|/Users/me/project', 'pi-cli')).toBe('Pi');
+  });
 });
