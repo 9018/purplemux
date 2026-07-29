@@ -1,9 +1,11 @@
 import { claudeProvider } from '@/lib/providers/claude';
 import { codexProvider } from '@/lib/providers/codex';
+import { piProvider } from '@/lib/providers/pi';
 import { registerProvider } from '@/lib/providers/registry';
 
 registerProvider(claudeProvider);
 registerProvider(codexProvider);
+registerProvider(piProvider);
 
 export {
   detectAnyActiveSession,
