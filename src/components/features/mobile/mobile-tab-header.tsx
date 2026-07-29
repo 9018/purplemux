@@ -44,19 +44,19 @@ const gitIndicatorToneClass: Record<TGitStatusIndicatorTone, string> = {
 };
 
 type TModeButton = {
-  type: Extract<TPanelType, 'terminal' | 'claude-code' | 'codex-cli'>;
+  type: Extract<TPanelType, 'terminal' | 'claude-code' | 'codex-cli' | 'pi-cli'>;
   label: string;
   startAction?: boolean;
 };
 
 const canSwitchMode = (panelType: TPanelType) =>
-  panelType === 'terminal' || panelType === 'claude-code' || panelType === 'codex-cli';
+  panelType === 'terminal' || panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli';
 
 const getButtonLabel = (mode: TModeButton) =>
   mode.startAction ? `Start ${mode.label}` : mode.label;
 
 const getAgentLabel = (panelType: TPanelType): string => {
-  if (panelType === 'claude-code' || panelType === 'codex-cli') return 'Chat';
+  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli') return 'Chat';
   return 'Terminal';
 };
 
@@ -65,6 +65,7 @@ const processMatchesAgent = (panelType: TPanelType | undefined, process: string 
   const normalized = process.toLowerCase();
   if (panelType === 'claude-code') return normalized === 'claude';
   if (panelType === 'codex-cli') return normalized === 'codex';
+  if (panelType === 'pi-cli') return normalized === 'pi';
   return false;
 };
 

@@ -763,13 +763,18 @@ export const navigateToTabOrCreate = async (
   agentSessionId: string | null,
   workspaceName: string,
   workspaceDir: string | null,
-  providerId: 'claude' | 'codex' = 'claude',
+  providerId: 'claude' | 'codex' | 'pi' = 'claude',
 ): Promise<void> => {
   const wsStore = useWorkspaceStore.getState();
 
-  const panelType: TPanelType = providerId === 'codex' ? 'codex-cli' : 'claude-code';
+  const panelType: TPanelType = providerId === 'codex'
+    ? 'codex-cli'
+    : providerId === 'pi'
+      ? 'pi-cli'
+      : 'claude-code';
   const matchSessionId = (tab: ITab): boolean => {
     if (providerId === 'codex') return tab.agentState?.providerId === 'codex' && tab.agentState.sessionId === agentSessionId;
+    if (providerId === 'pi') return tab.agentState?.providerId === 'pi' && tab.agentState.sessionId === agentSessionId;
     return tab.agentState?.providerId === 'claude'
       ? tab.agentState.sessionId === agentSessionId
       : tab.claudeSessionId === agentSessionId;
