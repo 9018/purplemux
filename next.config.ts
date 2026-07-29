@@ -10,6 +10,10 @@ const commitHash = (() => {
 })();
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: process.cwd(),
+  turbopack: {
+    root: process.cwd(),
+  },
   env: {
     NEXT_PUBLIC_COMMIT_HASH: commitHash,
   },
