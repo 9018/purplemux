@@ -4,6 +4,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { readClaudeRuntimeSnapshot } from '@/lib/providers/claude/runtime-snapshot';
 import { readCodexRuntimeSnapshot } from '@/lib/providers/codex/runtime-snapshot';
+import { readPiRuntimeSnapshot } from '@/lib/providers/pi/runtime-snapshot';
 
 const writeJsonl = async (lines: unknown[]): Promise<string> => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'purplemux-runtime-snapshot-'));
@@ -104,5 +105,53 @@ describe('agent runtime snapshots', () => {
     expect(snapshot.reset).toBe(true);
     expect(snapshot.lastAssistantSnippet).toBe('Previous answer.');
     expect(snapshot.currentAction).toBeNull();
+  });
+
+  it('reports Pi in-flight tool calls until their tool result is recorded', async () => {
+    const jsonlPath = await writeJsonl([
+      { type: 'session', version: 3, id: 'pi-session', timestamp: '2026-07-29T10:00:00.000Z', cwd: '/tmp/project' },
+      { type: 'message', id: 'u1', parentId: null, timestamp: '2026-07-29T10:00:01.000Z', message: { role: 'user', content: 'run tests' } },
+      {
+        type: 'message', id: 'a1', parentId: 'u1', timestamp: '2026-07-29T10:00:02.000Z',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: 'Running the test suite.' },
+            { type: 'toolCall', id: 'tool-1', name: 'bash', arguments: { command: 'pnpm test' } },
+          ],
+          stopReason: 'toolUse',
+        },
+      },
+    ]);
+
+    const snapshot = await readPiRuntimeSnapshot(jsonlPath);
+
+    expect(snapshot).toMatchObject({
+      idle: false,
+      stale: false,
+      lastAssistantSnippet: 'Running the test suite.',
+      currentAction: { toolName: 'Bash', summary: '$ pnpm test' },
+      reset: false,
+    });
+  });
+
+  it('marks Pi idle after a completed tool result and final assistant response', async () => {
+    const jsonlPath = await writeJsonl([
+      { type: 'session', version: 3, id: 'pi-session', timestamp: '2026-07-29T10:01:00.000Z', cwd: '/tmp/project' },
+      { type: 'message', id: 'u1', parentId: null, timestamp: '2026-07-29T10:01:01.000Z', message: { role: 'user', content: 'run tests' } },
+      { type: 'message', id: 'a1', parentId: 'u1', timestamp: '2026-07-29T10:01:02.000Z', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'tool-1', name: 'bash', arguments: { command: 'pnpm test' } }], stopReason: 'toolUse' } },
+      { type: 'message', id: 'r1', parentId: 'a1', timestamp: '2026-07-29T10:01:03.000Z', message: { role: 'toolResult', toolCallId: 'tool-1', toolName: 'bash', content: [{ type: 'text', text: 'passed' }], isError: false } },
+      { type: 'message', id: 'a2', parentId: 'r1', timestamp: '2026-07-29T10:01:04.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'All tests passed.' }], stopReason: 'stop' } },
+    ]);
+
+    const snapshot = await readPiRuntimeSnapshot(jsonlPath);
+
+    expect(snapshot).toMatchObject({
+      idle: true,
+      stale: false,
+      lastAssistantSnippet: 'All tests passed.',
+      currentAction: null,
+      interrupted: false,
+    });
   });
 });

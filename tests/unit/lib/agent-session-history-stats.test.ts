@@ -4,6 +4,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { readClaudeSessionHistoryStats } from '@/lib/providers/claude/session-history-stats';
 import { readCodexSessionHistoryStats } from '@/lib/providers/codex/session-history-stats';
+import { readPiSessionHistoryStats } from '@/lib/providers/pi/session-history-stats';
 
 const writeJsonl = async (lines: unknown[]): Promise<string> => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'purplemux-history-stats-'));
@@ -100,6 +101,39 @@ describe('agent session history stats', () => {
       turnDurationMs: 1500,
       toolUsage: { Bash: 1, apply_patch: 1 },
       touchedFiles: ['src/app.ts'],
+    });
+  });
+
+  it('extracts Pi prompt, result, tools, touched files, and turn duration', async () => {
+    const jsonlPath = await writeJsonl([
+      { type: 'session', version: 3, id: 'pi-session', timestamp: '2026-07-29T11:00:00.000Z', cwd: '/tmp/project' },
+      { type: 'message', id: 'u1', parentId: null, timestamp: '2026-07-29T11:00:01.000Z', message: { role: 'user', content: 'Implement Pi stats' } },
+      {
+        type: 'message', id: 'a1', parentId: 'u1', timestamp: '2026-07-29T11:00:02.000Z',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'toolCall', id: 'read-1', name: 'read', arguments: { path: '/workspace/input.ts' } },
+            { type: 'toolCall', id: 'write-1', name: 'write', arguments: { file_path: '/workspace/output.ts' } },
+            { type: 'toolCall', id: 'edit-1', name: 'edit', arguments: { path: '/workspace/input.ts' } },
+          ],
+          stopReason: 'toolUse',
+        },
+      },
+      { type: 'message', id: 'r1', parentId: 'a1', timestamp: '2026-07-29T11:00:03.000Z', message: { role: 'toolResult', toolCallId: 'edit-1', toolName: 'edit', content: [{ type: 'text', text: 'done' }], isError: false } },
+      { type: 'message', id: 'a2', parentId: 'r1', timestamp: '2026-07-29T11:00:05.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'Implemented Pi stats.' }], stopReason: 'stop' } },
+    ]);
+
+    const stats = await readPiSessionHistoryStats(jsonlPath);
+
+    expect(stats).toMatchObject({
+      lastUserText: 'Implement Pi stats',
+      lastAssistantText: 'Implemented Pi stats.',
+      firstUserTs: Date.parse('2026-07-29T11:00:01.000Z'),
+      lastAssistantTs: Date.parse('2026-07-29T11:00:05.000Z'),
+      turnDurationMs: 4000,
+      toolUsage: { read: 1, write: 1, edit: 1 },
+      touchedFiles: ['/workspace/input.ts', '/workspace/output.ts'],
     });
   });
 });
