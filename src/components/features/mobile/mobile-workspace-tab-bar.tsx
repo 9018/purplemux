@@ -82,7 +82,7 @@ const MobileWorkspaceTabBar = ({
             item.workspaceId === activeWorkspaceId &&
             item.paneId === selectedPaneId &&
             item.tabId === selectedTabId;
-          const isAgent = item.panelType === 'claude-code' || item.panelType === 'codex-cli';
+          const isAgent = item.panelType === 'claude-code' || item.panelType === 'codex-cli' || item.panelType === 'pi-cli';
           const status = selectTabDisplayStatus(statusTabs, item.tabId);
           const termStatus = statusTabs[item.tabId]?.terminalStatus;
           const currentProcess = statusTabs[item.tabId]?.currentProcess;

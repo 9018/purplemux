@@ -60,7 +60,7 @@ const PaneTabBar = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const sortedTabs = useMemo(() => [...tabs].sort((a, b) => a.order - b.order), [tabs]);
   const canSwitchMode = (panelType: TPanelType | undefined) =>
-    !panelType || panelType === 'terminal' || panelType === 'claude-code' || panelType === 'codex-cli';
+    !panelType || panelType === 'terminal' || panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli';
 
   const {
     draggedTabId,

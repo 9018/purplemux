@@ -15,7 +15,7 @@ interface IWorkspaceStatusIndicatorProps {
 const DotByStatus = ({ status, panelType, terminalStatus, process }: { status: TTabDisplayStatus; panelType?: TPanelType; terminalStatus?: TTerminalStatus; process?: string | null }) => {
   let inner: React.ReactNode;
 
-  if (panelType === 'claude-code' || panelType === 'codex-cli') {
+  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli') {
     if (status === 'busy') {
       inner = <Spinner className="h-2 w-2 text-muted-foreground" />;
     } else if (status === 'ready-for-review') {

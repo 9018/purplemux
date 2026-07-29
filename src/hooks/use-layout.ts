@@ -614,7 +614,11 @@ const useLayoutStore = create<ILayoutState>((set, get) => ({
         const nextName = resolveTabNameForPanelTypeChange(t.name, t.panelType, panelType);
         const updated: ITab = { ...t, panelType, name: nextName };
         if (nextName !== t.name) resolvedName = nextName;
-        if (panelType === 'codex-cli' && t.panelType === 'claude-code') {
+        if (
+          (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli')
+          && (t.panelType === 'claude-code' || t.panelType === 'codex-cli' || t.panelType === 'pi-cli')
+          && panelType !== t.panelType
+        ) {
           updated.claudeSessionId = null;
           updated.agentState = undefined;
         }

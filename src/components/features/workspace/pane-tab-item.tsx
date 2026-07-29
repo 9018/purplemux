@@ -4,6 +4,7 @@ import { X, Globe, GitCompareArrows, History } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import ClaudeCodeIcon from '@/components/icons/claude-code-icon';
 import OpenAIIcon from '@/components/icons/openai-icon';
+import PiIcon from '@/components/icons/pi-icon';
 import ProcessIcon from '@/components/icons/process-icon';
 import { cn } from '@/lib/utils';
 import type { ITab } from '@/types/terminal';
@@ -120,6 +121,8 @@ const PaneTabItem = ({
             <ClaudeCodeIcon className="mx-0.5 h-3 w-3 shrink-0" />
           ) : tab.panelType === 'codex-cli' ? (
             <OpenAIIcon className="mx-0.5 h-3 w-3 shrink-0 text-foreground" aria-label="Codex" />
+          ) : tab.panelType === 'pi-cli' ? (
+            <PiIcon className="mx-0.5 h-3 w-3 shrink-0 text-foreground" aria-label="Pi" />
           ) : tab.panelType === 'web-browser' ? (
             <Globe className="mx-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
           ) : tab.panelType === 'diff' ? (

@@ -14,6 +14,7 @@ import TerminalContainer from '@/components/features/workspace/terminal-containe
 import ConnectionStatus from '@/components/features/workspace/connection-status';
 import MobileClaudeCodePanel from '@/components/features/mobile/mobile-claude-code-panel';
 import MobileCodexPanel from '@/components/features/mobile/mobile-codex-panel';
+import MobilePiPanel from '@/components/features/mobile/mobile-pi-panel';
 import AgentSessionsPanel from '@/components/features/workspace/agent-sessions-panel';
 import MobileTerminalToolbar from '@/components/features/mobile/mobile-terminal-toolbar';
 import PaneAgentModePrompt from '@/components/features/workspace/pane-agent-mode-prompt';
@@ -30,6 +31,7 @@ import useCodexUpdatePromptDetector from '@/hooks/use-codex-update-prompt-detect
 import { useAgentInstallCheck } from '@/hooks/use-agent-install-check';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
+import { fetchPiLaunchCommand } from '@/lib/providers/pi/client';
 import { sendCodexQuitCommand } from '@/lib/agent-terminal-commands';
 import { toast } from 'sonner';
 import type { IAgentSessionEntry } from '@/hooks/use-agent-sessions';
@@ -113,8 +115,9 @@ const MobileSurfaceView = ({
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const isClaudeCode = panelType === 'claude-code';
   const isCodex = panelType === 'codex-cli';
+  const isPi = panelType === 'pi-cli';
   const isAgentSessionList = panelType === 'agent-sessions';
-  const isAgentPanel = isClaudeCode || isCodex;
+  const isAgentPanel = isClaudeCode || isCodex || isPi;
   const usesHiddenTerminal = isAgentPanel || isAgentSessionList;
   const isWebBrowser = panelType === 'web-browser';
   const isDiff = panelType === 'diff';
@@ -484,6 +487,10 @@ const MobileSurfaceView = ({
     () => fetchCodexLaunchCommand(layoutWsId),
     [layoutWsId],
   );
+  const buildPiCommand = useCallback(
+    (resumeSessionId?: string | null) => fetchPiLaunchCommand(layoutWsId, resumeSessionId),
+    [layoutWsId],
+  );
 
   const markAgentLaunch = useCallback((tabId: string, options?: { resetAgentSession?: boolean }) => {
     fetch('/api/status/agent-launch', {
@@ -508,6 +515,21 @@ const MobileSurfaceView = ({
     sendStdin(`${command}\r`);
   }, [status, sendStdin, activeTabId, buildCodexCommand, ensureAgentInstalled, markAgentLaunch, tt]);
 
+  const handleNewPiSession = useCallback(async () => {
+    if (status !== 'connected' || !activeTabId) return;
+    if (!await ensureAgentInstalled('pi')) return;
+    let command: string;
+    try {
+      command = await buildPiCommand();
+    } catch {
+      toast.error('Pi launch failed. Check the terminal.');
+      return;
+    }
+    markAgentLaunch(activeTabId, { resetAgentSession: true });
+    useTabStore.getState().setSessionView(activeTabId, 'check');
+    sendStdin(`${command}\r`);
+  }, [activeTabId, buildPiCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status]);
+
   const handleNewClaudeFromSessionList = useCallback(async () => {
     if (!activeTabId) return;
     if (!await ensureAgentInstalled('claude')) return;
@@ -522,9 +544,16 @@ const MobileSurfaceView = ({
     void handleNewCodexSession();
   }, [activeTabId, ensureAgentInstalled, handleNewCodexSession, onUpdateTabPanelType, paneId]);
 
+  const handleNewPiFromSessionList = useCallback(async () => {
+    if (!activeTabId) return;
+    if (!await ensureAgentInstalled('pi')) return;
+    onUpdateTabPanelType(paneId, activeTabId, 'pi-cli');
+    void handleNewPiSession();
+  }, [activeTabId, ensureAgentInstalled, handleNewPiSession, onUpdateTabPanelType, paneId]);
+
   const handleSelectAgentSession = useCallback(async (session: IAgentSessionEntry) => {
     if (status !== 'connected' || !activeTabId) return;
-    const nextPanelType = session.provider === 'codex' ? 'codex-cli' : 'claude-code';
+    const nextPanelType = session.provider === 'codex' ? 'codex-cli' : session.provider === 'pi' ? 'pi-cli' : 'claude-code';
     if (!await ensureAgentInstalled(session.provider)) return;
     onUpdateTabPanelType(paneId, activeTabId, nextPanelType);
     useTabStore.getState().setSessionView(activeTabId, 'check');
@@ -542,8 +571,21 @@ const MobileSurfaceView = ({
       return;
     }
 
+    if (session.provider === 'pi') {
+      let command: string;
+      try {
+        command = await buildPiCommand(session.sessionId);
+      } catch {
+        toast.error('Pi launch failed. Check the terminal.');
+        return;
+      }
+      markAgentLaunch(activeTabId, { resetAgentSession: false });
+      sendStdin(`${command}\r`);
+      return;
+    }
+
     sendStdin(`${buildClaudeCommand(session.sessionId)}\r`);
-  }, [activeTabId, buildClaudeCommand, ensureAgentInstalled, layoutWsId, markAgentLaunch, onUpdateTabPanelType, paneId, sendStdin, status, tt]);
+  }, [activeTabId, buildClaudeCommand, buildPiCommand, ensureAgentInstalled, layoutWsId, markAgentLaunch, onUpdateTabPanelType, paneId, sendStdin, status, tt]);
 
   const handleRelaunchCodexSession = useCallback(async () => {
     if (status !== 'connected' || !activeTabId) return;
@@ -580,20 +622,40 @@ const MobileSurfaceView = ({
     sendCodexQuitCommand(sendStdin);
   }, [status, sendStdin, activeTabId, buildCodexCommand, ensureAgentInstalled, markAgentLaunch, tt]);
 
+  const handleRestartPiSession = useCallback(async () => {
+    if (status !== 'connected' || !activeTabId) return;
+    if (!await ensureAgentInstalled('pi')) return;
+    let command: string;
+    try {
+      command = await buildPiCommand();
+    } catch {
+      toast.error('Pi launch failed. Check the terminal.');
+      return;
+    }
+    pendingRestartRef.current = command;
+    markAgentLaunch(activeTabId, { resetAgentSession: true });
+    useTabStore.getState().setSessionView(activeTabId, 'check');
+    sendStdin('/exit\r');
+  }, [activeTabId, buildPiCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status]);
+
   useEffect(() => {
     const handleStartAgentRequest = (event: Event) => {
       const detail = (event as CustomEvent<{
         tabId?: string;
-        provider?: TGitAskProvider;
+        provider?: 'claude' | 'codex' | 'pi';
       }>).detail;
       if (detail?.tabId !== activeTabId) return;
-      if (detail.provider !== 'claude' && detail.provider !== 'codex') return;
+      if (detail.provider !== 'claude' && detail.provider !== 'codex' && detail.provider !== 'pi') return;
       const provider = detail.provider;
       void (async () => {
         if (!await ensureAgentInstalled(provider)) return;
-        onUpdateTabPanelType(paneId, activeTabId, provider === 'codex' ? 'codex-cli' : 'claude-code');
+        onUpdateTabPanelType(paneId, activeTabId, provider === 'codex' ? 'codex-cli' : provider === 'pi' ? 'pi-cli' : 'claude-code');
         if (provider === 'codex') {
           void handleNewCodexSession();
+          return;
+        }
+        if (provider === 'pi') {
+          void handleNewPiSession();
           return;
         }
         void handleNewClaudeSession();
@@ -602,7 +664,7 @@ const MobileSurfaceView = ({
 
     window.addEventListener('purplemux-start-agent', handleStartAgentRequest);
     return () => window.removeEventListener('purplemux-start-agent', handleStartAgentRequest);
-  }, [activeTabId, ensureAgentInstalled, handleNewClaudeSession, handleNewCodexSession, onUpdateTabPanelType, paneId]);
+  }, [activeTabId, ensureAgentInstalled, handleNewClaudeSession, handleNewCodexSession, handleNewPiSession, onUpdateTabPanelType, paneId]);
 
   useEffect(() => {
     if (!pendingRestartRef.current || agentProcess === true) return;
@@ -665,12 +727,26 @@ const MobileSurfaceView = ({
       return;
     }
 
+    if (prompt.panelType === 'pi-cli') {
+      if (!await ensureAgentInstalled('pi')) return;
+      try {
+        pendingRestartRef.current = await buildPiCommand(resumeSessionId);
+      } catch {
+        toast.error('Pi launch failed. Check the terminal.');
+        return;
+      }
+      markAgentLaunch(activeTabId, { resetAgentSession: !resumeSessionId });
+      useTabStore.getState().setSessionView(activeTabId, 'check');
+      sendStdin('/exit\r');
+      return;
+    }
+
     if (!await ensureAgentInstalled('claude')) return;
     pendingRestartRef.current = buildClaudeCommand(resumeSessionId);
     useTabStore.getState().setSessionView(activeTabId, 'check');
     sendStdin('\x03');
     setTimeout(() => sendStdin('\x03'), 300);
-  }, [activeTabId, agentModePrompt, buildClaudeCommand, ensureAgentInstalled, layoutWsId, markAgentLaunch, onUpdateTabPanelType, paneId, sendStdin, status, tt]);
+  }, [activeTabId, agentModePrompt, buildClaudeCommand, buildPiCommand, ensureAgentInstalled, layoutWsId, markAgentLaunch, onUpdateTabPanelType, paneId, sendStdin, status, tt]);
 
   const handleSendToAgent = useCallback(async (text: string, provider: TGitAskProvider) => {
     if (!activeTabId) return;
@@ -773,6 +849,7 @@ const MobileSurfaceView = ({
           onSelectSession={handleSelectAgentSession}
           onNewClaudeSession={handleNewClaudeFromSessionList}
           onNewCodexSession={handleNewCodexFromSessionList}
+          onNewPiSession={handleNewPiFromSessionList}
         />
       )}
 
@@ -812,6 +889,24 @@ const MobileSurfaceView = ({
           onRestart={handleRestartCodexSession}
           updatePrompt={codexUpdatePrompt}
           onUpdatePromptResponse={onCodexUpdateResponse}
+          trustPrompt={trustPrompt}
+          onTrustResponse={onTrustResponse}
+        />
+      )}
+
+      {isPi && activeTab && (
+        <MobilePiPanel
+          tabId={activeTabId ?? undefined}
+          wsId={layoutWsId ?? undefined}
+          sessionName={activeTab.sessionName}
+          cwd={activeTabCwd || activeTab.cwd}
+          sendStdin={sendWebStdin}
+          terminalWsConnected={status === 'connected'}
+          focusTerminal={focus}
+          focusInputRef={focusInputRef}
+          setInputValueRef={setInputValueRef}
+          onNewSession={handleNewPiSession}
+          onRestart={handleRestartPiSession}
           trustPrompt={trustPrompt}
           onTrustResponse={onTrustResponse}
         />

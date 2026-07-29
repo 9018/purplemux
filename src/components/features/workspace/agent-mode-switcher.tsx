@@ -83,6 +83,7 @@ const AgentModeSwitcher = ({
       : [
           { type: 'claude-code' as const, label: 'Claude', startAction: true },
           { type: 'codex-cli' as const, label: 'Codex', startAction: true },
+          { type: 'pi-cli' as const, label: 'Pi', startAction: true },
         ]),
   ];
 
@@ -125,12 +126,12 @@ const AgentModeSwitcher = ({
         panelType,
       });
     }
-    if (mode.startAction && (mode.type === 'claude-code' || mode.type === 'codex-cli')) {
+    if (mode.startAction && isAgentPanel(mode.type)) {
       window.dispatchEvent(new CustomEvent('purplemux-start-agent', {
         detail: {
           paneId,
           tabId,
-          provider: mode.type === 'codex-cli' ? 'codex' : 'claude',
+          provider: providerForPanelType(mode.type),
         },
       }));
       return;

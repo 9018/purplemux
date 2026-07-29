@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { History, Plus, Globe } from 'lucide-react';
 import Spinner from '@/components/ui/spinner';
 import ClaudeCodeIcon from '@/components/icons/claude-code-icon';
 import OpenAIIcon from '@/components/icons/openai-icon';
+import PiIcon from '@/components/icons/pi-icon';
 import ProcessIcon from '@/components/icons/process-icon';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,6 +16,7 @@ import useIsMobile from '@/hooks/use-is-mobile';
 import useIsMac from '@/hooks/use-is-mac';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
+import { fetchPiLaunchCommand } from '@/lib/providers/pi/client';
 import { notifyCodexLaunchFailed } from '@/lib/codex-notifications';
 import useConfigStore from '@/hooks/use-config-store';
 import { useAgentInstallCheck } from '@/hooks/use-agent-install-check';
@@ -46,6 +49,7 @@ const defaultKeyForPanelType = (panelType?: TPanelType): string => {
     case 'terminal': return 'terminal';
     case 'web-browser': return 'web-browser';
     case 'codex-cli': return 'codex';
+    case 'pi-cli': return 'pi';
     case 'agent-sessions': return 'agent-sessions';
     case 'diff':
     case 'claude-code':
@@ -67,6 +71,7 @@ const PaneNewTabMenu = ({ paneId, isCreating, activePanelType, onCreateTab }: IP
     const all = [
       { key: 'claude', type: 'claude-code' as const, icon: <ClaudeCodeIcon className="h-3.5 w-3.5" />, label: t('claudeNewConversation'), startAgent: 'claude' as const },
       { key: 'codex', type: 'codex-cli' as const, icon: <OpenAIIcon className="h-3.5 w-3.5" />, label: t('codexNewConversation'), startAgent: 'codex' as const },
+      { key: 'pi', type: 'pi-cli' as const, icon: <PiIcon className="h-3.5 w-3.5" />, label: 'Pi', startAgent: 'pi' as const },
       { key: 'agent-sessions', type: 'agent-sessions' as const, icon: <History className="h-3.5 w-3.5 text-muted-foreground" />, label: t('sessionList') },
       { key: 'terminal', type: 'terminal' as const, icon: <ProcessIcon className="h-3.5 w-3.5 text-muted-foreground" />, label: 'Terminal' },
       { key: 'web-browser', type: 'web-browser' as const, icon: <Globe className="h-3.5 w-3.5 text-muted-foreground" />, label: 'Web Browser' },
@@ -114,7 +119,17 @@ const PaneNewTabMenu = ({ paneId, isCreating, activePanelType, onCreateTab }: IP
     }
   }, [codexI18n, ensureAgentInstalled, onCreateTab, wsId]);
 
-  const handleStartAgent = useCallback(async (agent: 'claude' | 'codex') => {
+  const launchPiNewConversation = useCallback(async () => {
+    if (!await ensureAgentInstalled('pi')) return;
+    try {
+      const cmd = await fetchPiLaunchCommand(wsId);
+      onCreateTab('pi-cli', { command: cmd });
+    } catch {
+      toast.error('Pi launch failed. Check the terminal.');
+    }
+  }, [ensureAgentInstalled, onCreateTab, wsId]);
+
+  const handleStartAgent = useCallback(async (agent: 'claude' | 'codex' | 'pi') => {
     setOpen(false);
     if (agent === 'claude') {
       if (!await ensureAgentInstalled('claude')) return;
@@ -125,8 +140,12 @@ const PaneNewTabMenu = ({ paneId, isCreating, activePanelType, onCreateTab }: IP
       onCreateTab('claude-code', { command: cmd });
       return;
     }
-    void launchCodexNewConversation();
-  }, [ensureAgentInstalled, launchCodexNewConversation, onCreateTab, wsId]);
+    if (agent === 'codex') {
+      void launchCodexNewConversation();
+      return;
+    }
+    void launchPiNewConversation();
+  }, [ensureAgentInstalled, launchCodexNewConversation, launchPiNewConversation, onCreateTab, wsId]);
 
   const handleOpenList = (item: typeof menuItems[number]) => {
     setOpen(false);

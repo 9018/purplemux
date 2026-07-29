@@ -3,6 +3,7 @@ import { X, Plus, GitCompareArrows, Copy, History, MessageSquare, TerminalSquare
 import { useTranslations } from 'next-intl';
 import ClaudeCodeIcon from '@/components/icons/claude-code-icon';
 import OpenAIIcon from '@/components/icons/openai-icon';
+import PiIcon from '@/components/icons/pi-icon';
 import TabStatusIndicator from '@/components/features/workspace/tab-status-indicator';
 import CopyPaneDrawer from '@/components/features/workspace/copy-pane-drawer';
 import useTabStore from '@/hooks/use-tab-store';
@@ -139,6 +140,7 @@ const MobileTabHeader = ({
       : [
           { type: 'claude-code' as const, label: 'Claude', startAction: true },
           { type: 'codex-cli' as const, label: 'Codex', startAction: true },
+          { type: 'pi-cli' as const, label: 'Pi', startAction: true },
         ]),
   ];
   const processColor = tabEntry?.terminalStatus === 'server'
@@ -150,6 +152,7 @@ const MobileTabHeader = ({
   const renderTabIcon = () => {
     if (panelType === 'claude-code') return <ClaudeCodeIcon size={16} />;
     if (panelType === 'codex-cli') return <OpenAIIcon size={16} className="shrink-0 text-foreground" aria-label="Codex" />;
+    if (panelType === 'pi-cli') return <PiIcon size={16} className="shrink-0 text-foreground" aria-label="Pi" />;
     if (panelType === 'diff') return <GitCompareArrows className={cn(iconClassName, 'text-muted-foreground')} />;
     if (panelType === 'agent-sessions') return <History className={cn(iconClassName, 'text-muted-foreground')} />;
     return (
@@ -178,11 +181,11 @@ const MobileTabHeader = ({
       runningAgentPanelType: runtimeAgentPanelType,
     })) return;
     setModeDrawerOpen(false);
-    if (mode.startAction && (mode.type === 'claude-code' || mode.type === 'codex-cli')) {
+    if (mode.startAction && isAgentPanel(mode.type)) {
       window.dispatchEvent(new CustomEvent('purplemux-start-agent', {
         detail: {
           tabId,
-          provider: mode.type === 'codex-cli' ? 'codex' : 'claude',
+          provider: mode.type === 'codex-cli' ? 'codex' : mode.type === 'pi-cli' ? 'pi' : 'claude',
         },
       }));
       return;

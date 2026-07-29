@@ -15,7 +15,7 @@ const TabStatusIndicator = ({ tabId, panelType }: ITabStatusIndicatorProps) => {
     (state) => selectTabDisplayStatus(state.tabs, tabId),
   );
 
-  const isAgent = panelType === 'claude-code' || panelType === 'codex-cli';
+  const isAgent = panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli';
   const visible = isAgent && status !== 'idle';
 
   return (

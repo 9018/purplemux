@@ -532,7 +532,7 @@ class StatusManager {
       ? completedAt - startedAt
       : (stats?.turnDurationMs ?? (completedAt - startedAt));
 
-    const providerId = entry.agentProviderId === 'codex' ? 'codex' : 'claude';
+    const providerId = entry.agentProviderId === 'codex' ? 'codex' : entry.agentProviderId === 'pi' ? 'pi' : 'claude';
     const historyEntry: ISessionHistoryEntry = {
       id: nanoid(),
       workspaceId: entry.workspaceId,
@@ -1186,7 +1186,7 @@ class StatusManager {
     const title = pushType === 'needs-input' ? 'Input Required' : 'Task Complete';
     const body = entry.lastUserMessage?.slice(0, 100) || entry.tabName || tabId;
     const ws = (await getWorkspaces()).workspaces.find((w) => w.id === entry.workspaceId);
-    const providerId = entry.agentProviderId === 'codex' ? 'codex' : 'claude';
+    const providerId = entry.agentProviderId === 'codex' ? 'codex' : entry.agentProviderId === 'pi' ? 'pi' : 'claude';
     const payload = JSON.stringify({
       title,
       body,

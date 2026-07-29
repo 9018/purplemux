@@ -158,7 +158,7 @@ const useWebPush = () => {
       workspaceName?: string;
       workspaceDir?: string | null;
     }) => {
-      const providerId = params.providerId === 'codex' ? 'codex' : 'claude';
+      const providerId = params.providerId === 'codex' ? 'codex' : params.providerId === 'pi' ? 'pi' : 'claude';
       if (params.claudeSessionId) {
         navigateToTabOrCreate(
           params.workspaceId,

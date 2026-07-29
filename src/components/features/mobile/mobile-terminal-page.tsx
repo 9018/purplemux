@@ -23,6 +23,7 @@ import { useAutoDeleteEmptyWorkspace } from '@/hooks/use-auto-delete-empty-works
 import { useAgentInstallCheck } from '@/hooks/use-agent-install-check';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
+import { fetchPiLaunchCommand } from '@/lib/providers/pi/client';
 
 const MobileTerminalPage = () => {
   const t = useTranslations('terminal');
@@ -204,6 +205,14 @@ const MobileTerminalPage = () => {
         cmd = await fetchCodexLaunchCommand(activeWorkspaceId);
       } catch {
         toast.error(t('codexLaunchFailed'));
+        return;
+      }
+    } else if (options?.command === 'pi-new') {
+      if (!await ensureAgentInstalled('pi')) return;
+      try {
+        cmd = await fetchPiLaunchCommand(activeWorkspaceId);
+      } catch {
+        toast.error('Pi launch failed. Check the terminal.');
         return;
       }
     }

@@ -20,10 +20,12 @@ import TerminalKeyBar from '@/components/features/workspace/terminal-key-bar';
 import { useShallow } from 'zustand/react/shallow';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
+import { fetchPiLaunchCommand } from '@/lib/providers/pi/client';
 import { sendCodexQuitCommand } from '@/lib/agent-terminal-commands';
 import TerminalContainer from '@/components/features/workspace/terminal-container';
 import ClaudeCodePanel from '@/components/features/workspace/claude-code-panel';
 import CodexPanel from '@/components/features/workspace/codex-panel';
+import PiPanel from '@/components/features/workspace/pi-panel';
 import AgentSessionsPanel from '@/components/features/workspace/agent-sessions-panel';
 import WebInputBar from '@/components/features/workspace/web-input-bar';
 import QuickPromptBar from '@/components/features/workspace/quick-prompt-bar';
@@ -129,8 +131,9 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   const activePanelType: TPanelType = activeTab?.panelType ?? 'terminal';
   const isClaudeCode = activePanelType === 'claude-code';
   const isCodex = activePanelType === 'codex-cli';
+  const isPi = activePanelType === 'pi-cli';
   const isAgentSessionList = activePanelType === 'agent-sessions';
-  const isAgentPanel = isClaudeCode || isCodex;
+  const isAgentPanel = isClaudeCode || isCodex || isPi;
   const isWebBrowser = activePanelType === 'web-browser';
   const isDiff = activePanelType === 'diff';
   const { ensureAgentInstalled, installDialogs } = useAgentInstallCheck();
@@ -606,7 +609,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
 
     connectedSessionRef.current = tab.sessionName;
     const { cols, rows } = fit();
-    const isAgentTab = tab.panelType === 'claude-code' || tab.panelType === 'codex-cli';
+    const isAgentTab = tab.panelType === 'claude-code' || tab.panelType === 'codex-cli' || tab.panelType === 'pi-cli';
     const initialSize = normalizeTerminalSize(
       cols,
       rows,
@@ -873,6 +876,10 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     () => fetchCodexLaunchCommand(layoutWsId),
     [layoutWsId],
   );
+  const buildPiCommand = useCallback(
+    (resumeSessionId?: string | null) => fetchPiLaunchCommand(layoutWsId, resumeSessionId),
+    [layoutWsId],
+  );
 
   const markAgentLaunch = useCallback((tabId: string, options?: { resetAgentSession?: boolean }) => {
     fetch('/api/status/agent-launch', {
@@ -897,6 +904,21 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     sendStdin(`${command}\r`);
   }, [status, sendStdin, activeTabId, buildCodexCommand, ensureAgentInstalled, markAgentLaunch, t]);
 
+  const handleNewPiSession = useCallback(async () => {
+    if (status !== 'connected' || !activeTabId) return;
+    if (!await ensureAgentInstalled('pi')) return;
+    let command: string;
+    try {
+      command = await buildPiCommand();
+    } catch {
+      toast.error('Pi launch failed. Check the terminal.');
+      return;
+    }
+    markAgentLaunch(activeTabId, { resetAgentSession: true });
+    useTabStore.getState().setSessionView(activeTabId, 'check');
+    sendStdin(`${command}\r`);
+  }, [activeTabId, buildPiCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status]);
+
   const handleNewClaudeFromSessionList = useCallback(async () => {
     if (!await ensureAgentInstalled('claude')) return;
     handleSwitchPanelType('claude-code');
@@ -909,9 +931,15 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     void handleNewCodexSession();
   }, [ensureAgentInstalled, handleNewCodexSession, handleSwitchPanelType]);
 
+  const handleNewPiFromSessionList = useCallback(async () => {
+    if (!await ensureAgentInstalled('pi')) return;
+    handleSwitchPanelType('pi-cli');
+    void handleNewPiSession();
+  }, [ensureAgentInstalled, handleNewPiSession, handleSwitchPanelType]);
+
   const handleSelectAgentSession = useCallback(async (session: IAgentSessionEntry) => {
     if (status !== 'connected' || !activeTabId) return;
-    const nextPanelType = session.provider === 'codex' ? 'codex-cli' : 'claude-code';
+    const nextPanelType = session.provider === 'codex' ? 'codex-cli' : session.provider === 'pi' ? 'pi-cli' : 'claude-code';
     if (!await ensureAgentInstalled(session.provider)) return;
     handleSwitchPanelType(nextPanelType);
     useTabStore.getState().setSessionView(activeTabId, 'check');
@@ -929,8 +957,21 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
       return;
     }
 
+    if (session.provider === 'pi') {
+      let command: string;
+      try {
+        command = await buildPiCommand(session.sessionId);
+      } catch {
+        toast.error('Pi launch failed. Check the terminal.');
+        return;
+      }
+      markAgentLaunch(activeTabId, { resetAgentSession: false });
+      sendStdin(`${command}\r`);
+      return;
+    }
+
     sendStdin(`${buildClaudeCommand(session.sessionId)}\r`);
-  }, [activeTabId, buildClaudeCommand, ensureAgentInstalled, handleSwitchPanelType, layoutWsId, markAgentLaunch, sendStdin, status, t]);
+  }, [activeTabId, buildClaudeCommand, buildPiCommand, ensureAgentInstalled, handleSwitchPanelType, layoutWsId, markAgentLaunch, sendStdin, status, t]);
 
   const handleRelaunchCodexSession = useCallback(async () => {
     if (status !== 'connected' || !activeTabId) return;
@@ -967,19 +1008,35 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     sendCodexQuitCommand(sendStdin);
   }, [status, sendStdin, activeTabId, buildCodexCommand, ensureAgentInstalled, markAgentLaunch, t]);
 
+  const handleRestartPiSession = useCallback(async () => {
+    if (status !== 'connected' || !activeTabId) return;
+    if (!await ensureAgentInstalled('pi')) return;
+    let command: string;
+    try {
+      command = await buildPiCommand();
+    } catch {
+      toast.error('Pi launch failed. Check the terminal.');
+      return;
+    }
+    pendingRestartRef.current = command;
+    markAgentLaunch(activeTabId, { resetAgentSession: true });
+    useTabStore.getState().setSessionView(activeTabId, 'check');
+    sendStdin('/exit\r');
+  }, [activeTabId, buildPiCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status]);
+
   useEffect(() => {
     const handleStartAgentRequest = (event: Event) => {
       const detail = (event as CustomEvent<{
         paneId?: string;
         tabId?: string;
-        provider?: TGitAskProvider;
+        provider?: 'claude' | 'codex' | 'pi';
       }>).detail;
       if (detail?.paneId !== paneId || detail.tabId !== activeTabId) return;
-      if (detail.provider !== 'claude' && detail.provider !== 'codex') return;
+      if (detail.provider !== 'claude' && detail.provider !== 'codex' && detail.provider !== 'pi') return;
       const provider = detail.provider;
       void (async () => {
         if (!await ensureAgentInstalled(provider)) return;
-        const panelType = provider === 'codex' ? 'codex-cli' : 'claude-code';
+        const panelType = provider === 'codex' ? 'codex-cli' : provider === 'pi' ? 'pi-cli' : 'claude-code';
         useTabStore.getState().setDetectedAgent(activeTabId, {
           running: true,
           checkedAt: Date.now(),
@@ -991,13 +1048,17 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
           void handleNewCodexSession();
           return;
         }
+        if (provider === 'pi') {
+          void handleNewPiSession();
+          return;
+        }
         void handleNewClaudeSession();
       })();
     };
 
     window.addEventListener('purplemux-start-agent', handleStartAgentRequest);
     return () => window.removeEventListener('purplemux-start-agent', handleStartAgentRequest);
-  }, [activeTabId, ensureAgentInstalled, handleNewClaudeSession, handleNewCodexSession, handleSwitchPanelType, paneId]);
+  }, [activeTabId, ensureAgentInstalled, handleNewClaudeSession, handleNewCodexSession, handleNewPiSession, handleSwitchPanelType, paneId]);
 
   const handleSwitchToAgentMode = useCallback(async () => {
     const prompt = agentModePrompt;
@@ -1024,12 +1085,26 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
       return;
     }
 
+    if (prompt.panelType === 'pi-cli') {
+      if (!await ensureAgentInstalled('pi')) return;
+      try {
+        pendingRestartRef.current = await buildPiCommand(resumeSessionId);
+      } catch {
+        toast.error('Pi launch failed. Check the terminal.');
+        return;
+      }
+      markAgentLaunch(activeTabId, { resetAgentSession: !resumeSessionId });
+      useTabStore.getState().setSessionView(activeTabId, 'check');
+      sendStdin('/exit\r');
+      return;
+    }
+
     if (!await ensureAgentInstalled('claude')) return;
     pendingRestartRef.current = buildClaudeCommand(resumeSessionId);
     useTabStore.getState().setSessionView(activeTabId, 'check');
     sendStdin('\x03');
     setTimeout(() => sendStdin('\x03'), 300);
-  }, [activeTabId, agentModePrompt, status, ensureAgentInstalled, handleSwitchPanelType, layoutWsId, markAgentLaunch, sendStdin, t, buildClaudeCommand]);
+  }, [activeTabId, agentModePrompt, status, ensureAgentInstalled, handleSwitchPanelType, layoutWsId, markAgentLaunch, sendStdin, t, buildClaudeCommand, buildPiCommand]);
 
   useEffect(() => {
     if (!pendingRestartRef.current || agentProcess === true) return;
@@ -1193,6 +1268,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
             onSelectSession={handleSelectAgentSession}
             onNewClaudeSession={handleNewClaudeFromSessionList}
             onNewCodexSession={handleNewCodexFromSessionList}
+            onNewPiSession={handleNewPiFromSessionList}
           />
         )}
 
@@ -1276,6 +1352,22 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   removePendingMessageRef={removePendingMessageRef}
                 />
               )}
+              {isPi && activeTab && !showInitialLoading && activeTabId && (
+                <PiPanel
+                  key={activeTab.sessionName}
+                  tabId={activeTabId}
+                  sessionName={activeTab.sessionName}
+                  cwd={activeTabCwd || activeTab.cwd}
+                  onClose={() => handleSwitchPanelType('terminal')}
+                  onNewSession={handleNewPiSession}
+                  onRestart={handleRestartPiSession}
+                  trustPrompt={trustPrompt}
+                  onTrustResponse={onTrustResponse}
+                  scrollToBottomRef={scrollToBottomRef}
+                  addPendingMessageRef={addPendingMessageRef}
+                  removePendingMessageRef={removePendingMessageRef}
+                />
+              )}
               {isAgentPanel && !showInitialLoading && agentInputVisible && (
                 <WebInputBar
                   key={activeTabId}
@@ -1283,7 +1375,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   wsId={layoutWsId ?? undefined}
                   sessionName={activeTab?.sessionName}
                   agentSessionId={claudeSessionId}
-                  provider={isCodex ? 'codex' : 'claude'}
+                  provider={isCodex ? 'codex' : isPi ? 'pi' : 'claude'}
                   cliState={claudeCliState}
                   sendStdin={sendWebStdin}
                   terminalWsConnected={status === 'connected'}
@@ -1291,7 +1383,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   focusTerminal={focus}
                   focusInputRef={focusInputRef}
                   setInputValueRef={setInputValueRef}
-                  onRestartSession={isCodex ? handleRestartCodexSession : handleRestartClaudeSession}
+                  onRestartSession={isCodex ? handleRestartCodexSession : isPi ? handleRestartPiSession : handleRestartClaudeSession}
                   onSend={handleScrollToBottom}
                   onOptimisticSend={handleOptimisticSend}
                   onAddPendingMessage={handleAddPendingMessage}

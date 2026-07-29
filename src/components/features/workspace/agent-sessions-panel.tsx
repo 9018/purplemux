@@ -11,6 +11,7 @@ interface IAgentSessionsPanelProps {
   onSelectSession: (session: IAgentSessionEntry) => void | Promise<void>;
   onNewClaudeSession?: () => void;
   onNewCodexSession?: () => void;
+  onNewPiSession?: () => void;
 }
 
 const AgentSessionsPanel = ({
@@ -20,6 +21,7 @@ const AgentSessionsPanel = ({
   onSelectSession,
   onNewClaudeSession,
   onNewCodexSession,
+  onNewPiSession,
 }: IAgentSessionsPanelProps) => {
   const [resumingSessionKey, setResumingSessionKey] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -75,6 +77,7 @@ const AgentSessionsPanel = ({
         onLoadMore={loadMore}
         onNewClaudeSession={onNewClaudeSession}
         onNewCodexSession={onNewCodexSession}
+        onNewPiSession={onNewPiSession}
       />
     </div>
   );

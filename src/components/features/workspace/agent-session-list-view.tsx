@@ -6,10 +6,11 @@ import Spinner from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import ClaudeCodeIcon from '@/components/icons/claude-code-icon';
 import OpenAIIcon from '@/components/icons/openai-icon';
+import PiIcon from '@/components/icons/pi-icon';
 import { cn } from '@/lib/utils';
 import type { IAgentSessionEntry } from '@/hooks/use-agent-sessions';
 
-type TSessionFilter = 'all' | 'claude' | 'codex';
+type TSessionFilter = 'all' | 'claude' | 'codex' | 'pi';
 
 interface IAgentSessionListViewProps {
   sessions: IAgentSessionEntry[];
@@ -24,6 +25,7 @@ interface IAgentSessionListViewProps {
   onNewSession?: () => void;
   onNewClaudeSession?: () => void;
   onNewCodexSession?: () => void;
+  onNewPiSession?: () => void;
 }
 
 const formatRelativeTime = (
@@ -85,7 +87,9 @@ const SessionListSkeleton = () => (
 const AgentIcon = ({ provider }: { provider: IAgentSessionEntry['provider'] }) =>
   provider === 'codex'
     ? <OpenAIIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-    : <ClaudeCodeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+    : provider === 'pi'
+      ? <PiIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      : <ClaudeCodeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
 
 interface IAgentSessionItemProps {
   session: IAgentSessionEntry;
@@ -107,7 +111,7 @@ const AgentSessionItem = memo(({
   const absoluteTime = dayjs(session.lastActivityAt).format('MM/DD HH:mm');
   const relativeTime = formatRelativeTime(session.lastActivityAt, tSession);
   const displayMessage = session.firstMessage?.trim() || noMessageLabel;
-  const providerLabel = session.provider === 'codex' ? 'Codex' : 'Claude';
+  const providerLabel = session.provider === 'codex' ? 'Codex' : session.provider === 'pi' ? 'Pi' : 'Claude';
 
   return (
     <button
@@ -165,6 +169,7 @@ const AgentSessionListView = ({
   onNewSession,
   onNewClaudeSession,
   onNewCodexSession,
+  onNewPiSession,
 }: IAgentSessionListViewProps) => {
   const t = useTranslations('terminal');
   const tSession = useTranslations('session');
@@ -187,7 +192,11 @@ const AgentSessionListView = ({
   }, [hasMore, isLoadingMore, onLoadMore]);
 
   const isResumeInProgress = !!resumingSessionKey;
-  const displayError = error === 'codex' ? t('codexSessionsLoadFailed') : error;
+  const displayError = error === 'codex'
+    ? t('codexSessionsLoadFailed')
+    : error === 'pi'
+      ? 'Failed to load Pi sessions'
+      : error;
   const filteredSessions = useMemo(
     () => sessions.filter((session) => filter === 'all' || session.provider === filter),
     [filter, sessions],
@@ -196,6 +205,7 @@ const AgentSessionListView = ({
     { key: 'all', label: t('sessions') },
     { key: 'claude', label: 'Claude' },
     { key: 'codex', label: 'Codex' },
+    { key: 'pi', label: 'Pi' },
   ];
 
   return (
@@ -236,7 +246,13 @@ const AgentSessionListView = ({
               Codex
             </Button>
           )}
-          {onNewSession && !onNewClaudeSession && !onNewCodexSession && (
+          {onNewPiSession && (
+            <Button variant="outline" size="sm" onClick={onNewPiSession}>
+              <Plus size={12} />
+              Pi
+            </Button>
+          )}
+          {onNewSession && !onNewClaudeSession && !onNewCodexSession && !onNewPiSession && (
             <Button variant="outline" size="sm" onClick={onNewSession}>
               <Plus size={12} />
               {t('newConversation')}

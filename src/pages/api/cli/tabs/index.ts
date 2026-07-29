@@ -11,7 +11,7 @@ import type { TPanelType } from '@/types/terminal';
 
 const log = createLogger('api:cli:tabs');
 
-const VALID_PANEL_TYPES: TPanelType[] = ['terminal', 'claude-code', 'codex-cli', 'agent-sessions', 'web-browser', 'diff'];
+const VALID_PANEL_TYPES: TPanelType[] = ['terminal', 'claude-code', 'codex-cli', 'pi-cli', 'agent-sessions', 'web-browser', 'diff'];
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (!verifyCliToken(req)) {

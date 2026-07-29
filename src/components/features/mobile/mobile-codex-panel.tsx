@@ -5,9 +5,11 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Spinner from '@/components/ui/spinner';
 import OpenAIIcon from '@/components/icons/openai-icon';
+import PiIcon from '@/components/icons/pi-icon';
 import useTabStore, { selectSessionView } from '@/hooks/use-tab-store';
 import useTimeline from '@/hooks/use-timeline';
 import { useCodexSessions } from '@/hooks/use-codex-sessions';
+import { usePiSessions } from '@/hooks/use-pi-sessions';
 import useSessionMeta from '@/hooks/use-session-meta';
 import useGitBranch from '@/hooks/use-git-branch';
 import useGitStatus from '@/hooks/use-git-status';
@@ -30,6 +32,7 @@ import type { ITrustPromptInfo, TTrustAnswer } from '@/lib/trust-prompt-detector
 const CODEX_BOOT_CHECK_INTERVAL_MS = 800;
 
 interface IMobileCodexPanelProps {
+  provider?: 'codex' | 'pi';
   tabId?: string;
   wsId?: string;
   sessionName?: string;
@@ -48,6 +51,7 @@ interface IMobileCodexPanelProps {
 }
 
 const MobileCodexPanel = ({
+  provider = 'codex',
   tabId,
   wsId,
   sessionName,
@@ -69,7 +73,8 @@ const MobileCodexPanel = ({
   const agentInstalled = useTabStore((s) => (tabId ? s.tabs[tabId]?.agentInstalled ?? true : true));
   const cliState = useTabStore((s) => (tabId ? s.tabs[tabId]?.cliState ?? 'inactive' : 'inactive'));
   const compactingSince = useTabStore((s) => (tabId ? s.tabs[tabId]?.compactingSince ?? null : null));
-  const codexSessionId = useTabStore((s) => (tabId ? s.tabs[tabId]?.agentSessionId ?? null : null));
+  const agentSessionId = useTabStore((s) => (tabId ? s.tabs[tabId]?.agentSessionId ?? null : null));
+  const isPi = provider === 'pi';
   const tabAgentSummary = useTabStore((s) => (tabId ? s.tabs[tabId]?.agentSummary ?? null : null));
   const tabLastUserMessage = useTabStore((s) => (tabId ? s.tabs[tabId]?.lastUserMessage ?? null : null));
   const view = useTabStore((s) => (tabId ? selectSessionView(s.tabs, tabId) : 'session-list' as const));
@@ -103,8 +108,8 @@ const MobileCodexPanel = ({
   );
   const handleResumeError = useCallback(() => {
     setResumingSessionId(null);
-    toast.error(t('codexResumeFailed'));
-  }, [t]);
+    toast.error(isPi ? 'Pi resume failed.' : t('codexResumeFailed'));
+  }, [isPi, t]);
 
   const {
     entries,
@@ -126,8 +131,8 @@ const MobileCodexPanel = ({
     agentProcess: agentProcessFromTimeline,
   } = useTimeline({
     sessionName: sessionName ?? '',
-    agentSessionId: codexSessionId,
-    panelType: 'codex-cli',
+    agentSessionId,
+    panelType: isPi ? 'pi-cli' : 'codex-cli',
     enabled: !!sessionName,
     resumeCallbacks: {
       onResumeStarted: handleResumeStarted,
@@ -147,12 +152,20 @@ const MobileCodexPanel = ({
     getCliState: tabId ? () => useTabStore.getState().tabs[tabId]?.cliState : undefined,
   });
 
+  const codexSessionData = useCodexSessions(
+    cwd,
+    provider === 'codex' && !!cwd && view === 'session-list' && agentProcess !== true,
+  );
+  const piSessionData = usePiSessions(
+    cwd,
+    provider === 'pi' && !!cwd && view === 'session-list' && agentProcess !== true,
+  );
   const {
     sessions: codexSessions,
     isLoading: isCodexSessionListLoading,
     error: codexSessionListError,
     refresh: refetchCodexSessions,
-  } = useCodexSessions(cwd, !!cwd && view === 'session-list' && agentProcess !== true);
+  } = isPi ? piSessionData : codexSessionData;
 
   const prevAgentProcessRef = useRef(agentProcess);
   useEffect(() => {
@@ -192,7 +205,7 @@ const MobileCodexPanel = ({
         const res = await fetch(`/api/check-agent?session=${sessionName}`);
         if (!res.ok) return;
         const data = await res.json() as { running?: boolean; providerPanelType?: unknown; checkedAt?: number };
-        if (stopped || data.running !== true || data.providerPanelType !== 'codex-cli') return;
+        if (stopped || data.running !== true || data.providerPanelType !== (isPi ? 'pi-cli' : 'codex-cli')) return;
         useTabStore.getState().setAgentProcess(
           tabId,
           true,
@@ -208,7 +221,7 @@ const MobileCodexPanel = ({
       stopped = true;
       window.clearInterval(id);
     };
-  }, [agentProcess, agentProcessFromTimeline, cliState, sessionName, tabId, view]);
+  }, [agentProcess, agentProcessFromTimeline, cliState, isPi, sessionName, tabId, view]);
 
   const { meta } = useSessionMeta(entries, sessionSummary, initMeta, sessionStats, tabAgentSummary, tabLastUserMessage);
   const { branch, isLoading: isBranchLoading } = useGitBranch(sessionName ?? '');
@@ -234,8 +247,10 @@ const MobileCodexPanel = ({
         className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-muted px-6 text-center text-muted-foreground"
         role="status"
       >
-        <OpenAIIcon size={32} className="text-muted-foreground/60" />
-        <span className="text-sm font-medium text-foreground">{t('codexNotInstalled')}</span>
+        {isPi ? <PiIcon size={32} className="text-muted-foreground/60" /> : <OpenAIIcon size={32} className="text-muted-foreground/60" />}
+        <span className="text-sm font-medium text-foreground">
+          {isPi ? 'Install Pi CLI: npm i -g @mariozechner/pi-coding-agent' : t('codexNotInstalled')}
+        </span>
       </div>
     );
   }
@@ -280,9 +295,10 @@ const MobileCodexPanel = ({
     return (
       <div className="min-h-0 flex-1 bg-muted">
         <CodexSessionListView
+          provider={provider}
           sessions={codexSessions}
           isLoading={isCodexSessionListLoading}
-          error={codexSessionListError ? t('codexSessionsLoadFailed') : null}
+          error={codexSessionListError ? (isPi ? 'Failed to load Pi sessions' : t('codexSessionsLoadFailed')) : null}
           resumingSessionId={resumingSessionId}
           onSelectSession={handleSelectCodexSession}
           onRefresh={refetchCodexSessions}
@@ -292,15 +308,15 @@ const MobileCodexPanel = ({
     );
   }
 
-  if (cliState === 'inactive' && agentProcess === false && !codexSessionId && !isTimelineLoading) {
+  if (cliState === 'inactive' && agentProcess === false && !agentSessionId && !isTimelineLoading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-muted px-6 text-center" role="status">
-        <OpenAIIcon size={32} className="text-muted-foreground/60" />
-        <p className="text-sm font-medium text-foreground">{t('codexInactiveMessage')}</p>
+        {isPi ? <PiIcon size={32} className="text-muted-foreground/60" /> : <OpenAIIcon size={32} className="text-muted-foreground/60" />}
+        <p className="text-sm font-medium text-foreground">{isPi ? 'Pi session is not running' : t('codexInactiveMessage')}</p>
         {onNewSession && (
           <Button size="default" className="min-h-11" onClick={handleStart}>
             <Plus className="size-4" />
-            {t('codexStartSession')}
+            {isPi ? 'Start Pi' : t('codexStartSession')}
           </Button>
         )}
       </div>
@@ -359,8 +375,8 @@ const MobileCodexPanel = ({
           tabId={tabId}
           wsId={wsId}
           sessionName={sessionName}
-          agentSessionId={codexSessionId}
-          provider="codex"
+          agentSessionId={agentSessionId}
+          provider={provider}
           cliState={cliState}
           sendStdin={sendStdin}
           terminalWsConnected={terminalWsConnected}

@@ -155,7 +155,7 @@ const MobileNavigationSheet = ({
   const getTabProcess = (tab: ITab) => tabs[tab.id]?.currentProcess;
 
   const getTabAgentSummary = (tab: ITab, panelType: TPanelType): string | null => {
-    if (panelType !== 'claude-code' && panelType !== 'codex-cli') return null;
+    if (panelType !== 'claude-code' && panelType !== 'codex-cli' && panelType !== 'pi-cli') return null;
 
     const liveState = tabs[tab.id];
     const clean = (value: string | null | undefined): string | null => {
@@ -169,7 +169,8 @@ const MobileNavigationSheet = ({
     const agentSummary =
       tab.agentState &&
       ((panelType === 'claude-code' && tab.agentState.providerId === 'claude') ||
-        (panelType === 'codex-cli' && tab.agentState.providerId === 'codex'))
+        (panelType === 'codex-cli' && tab.agentState.providerId === 'codex') ||
+        (panelType === 'pi-cli' && tab.agentState.providerId === 'pi'))
         ? clean(tab.agentState.summary)
         : null;
     return agentSummary

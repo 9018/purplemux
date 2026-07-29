@@ -388,7 +388,7 @@ export const selectSessionView = (tabs: Record<string, ITabState>, tabId: string
 export const getInitialTabStateFromLayoutTab = (tab: ITab): Partial<ITabState> => {
   const patch: Partial<ITabState> = { panelType: tab.panelType };
   const providerId = tab.agentState?.providerId
-    ?? (tab.panelType === 'codex-cli' ? 'codex' : tab.panelType === 'claude-code' ? 'claude' : undefined);
+    ?? (tab.panelType === 'codex-cli' ? 'codex' : tab.panelType === 'pi-cli' ? 'pi' : tab.panelType === 'claude-code' ? 'claude' : undefined);
   const sessionId = tab.agentState?.sessionId ?? tab.claudeSessionId ?? null;
 
   if (providerId) patch.agentProviderId = providerId;

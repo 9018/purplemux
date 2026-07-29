@@ -38,7 +38,7 @@ interface IWebInputBarProps {
   wsId?: string;
   sessionName?: string;
   agentSessionId?: string | null;
-  provider?: 'claude' | 'codex';
+  provider?: 'claude' | 'codex' | 'pi';
   cliState: TCliState;
   sendStdin: (data: string) => void;
   terminalWsConnected: boolean;
@@ -78,7 +78,7 @@ const WebInputBar = ({
 }: IWebInputBarProps) => {
   const t = useTranslations('terminal');
   const tc = useTranslations('common');
-  const isCodex = provider === 'codex';
+  const isExternalAgent = provider === 'codex' || provider === 'pi';
   const { entries, isLoading, isError, fetchHistory, addHistory, deleteHistory } =
     useMessageHistory({ wsId });
   const isMobileDevice = useIsMobileDevice();
@@ -98,7 +98,7 @@ const WebInputBar = ({
       tabId,
       onRestartSession,
       onMessageSent: handleMessageSent,
-      disabledMessage: isCodex ? t('codexInactiveMessage') : t('inputDisabledPlaceholder'),
+      disabledMessage: isExternalAgent ? (provider === 'pi' ? 'Pi session is not running' : t('codexInactiveMessage')) : t('inputDisabledPlaceholder'),
       submitDelayMs,
     },
   );
@@ -205,7 +205,7 @@ const WebInputBar = ({
       : null;
 
     try {
-      const shouldConfirmImageRefs = !isCodex && fetchPane !== null;
+      const shouldConfirmImageRefs = !isExternalAgent && fetchPane !== null;
       let baselineRefs = 0;
       if (shouldConfirmImageRefs) {
         try {
@@ -255,7 +255,7 @@ const WebInputBar = ({
     } finally {
       setIsDispatching(false);
     }
-  }, [canSend, isDispatching, value, attachments, send, sendStdin, setValue, onSend, agentSessionId, sessionName, tabId, addHistory, onAddPendingMessage, onRemovePendingMessage, t, submitDelayMs, isCodex]);
+  }, [canSend, isDispatching, value, attachments, send, sendStdin, setValue, onSend, agentSessionId, sessionName, tabId, addHistory, onAddPendingMessage, onRemovePendingMessage, t, submitDelayMs, isExternalAgent]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
@@ -539,7 +539,7 @@ const WebInputBar = ({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={t('inputPlaceholder')}
-              aria-label={isCodex ? t('codexInputAriaLabel') : t('inputAriaLabel')}
+              aria-label={isExternalAgent ? (provider === 'pi' ? 'Send message to Pi' : t('codexInputAriaLabel')) : t('inputAriaLabel')}
               className="flex-1 resize-none bg-transparent py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               rows={1}
               style={{
@@ -569,7 +569,7 @@ const WebInputBar = ({
                 size="sm"
                 className={cn(
                   'h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground',
-                  canDispatch && (isCodex ? 'text-foreground' : 'text-claude-active'),
+                  canDispatch && (isExternalAgent ? 'text-foreground' : 'text-claude-active'),
                   !canDispatch && 'opacity-30',
                 )}
                 onClick={handleSendClick}
