@@ -17,6 +17,7 @@ import MobileCodexPanel from '@/components/features/mobile/mobile-codex-panel';
 import MobilePiPanel from '@/components/features/mobile/mobile-pi-panel';
 import AgentSessionsPanel from '@/components/features/workspace/agent-sessions-panel';
 import MobileTerminalToolbar from '@/components/features/mobile/mobile-terminal-toolbar';
+import TerminalKeyBar from '@/components/features/workspace/terminal-key-bar';
 import PaneAgentModePrompt from '@/components/features/workspace/pane-agent-mode-prompt';
 import { formatTabTitle, isShellProcess } from '@/lib/tab-title';
 import { isAppShortcut, isClearShortcut, isFocusInputShortcut, isShiftEnter } from '@/lib/keyboard-shortcuts';
@@ -42,6 +43,7 @@ import {
   type TAgentPanelType,
 } from '@/lib/agent-check';
 import { reloadForReconnectRecovery } from '@/lib/ws-reload-recovery';
+import { shouldShowTerminalKeyBar } from '@/lib/terminal-key-bar-visibility';
 
 
 interface ITermActions {
@@ -132,9 +134,12 @@ const MobileSurfaceView = ({
   const { theme: terminalTheme } = useTerminalTheme();
   const configLineHeight = useConfigStore((s) => s.lineHeight);
   const configLineHeightCustom = useConfigStore((s) => s.lineHeightCustom);
+  const keyBarMode = useConfigStore((s) => s.terminalKeyBar);
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showTerminal, setShowTerminal] = useState(true);
+  const [ctrlArmed, setCtrlArmed] = useState(false);
+  const [shiftArmed, setShiftArmed] = useState(false);
 
   const termActionsRef = useRef<ITermActions>(NOOP_TERM_ACTIONS);
   const wsActionsRef = useRef<IWsActions>(NOOP_WS_ACTIONS);
@@ -794,6 +799,13 @@ const MobileSurfaceView = ({
 
   const noTabs = tabs.length === 0;
   const ready = isWebBrowser || isDiff || isAgentSessionList || (isReady && status === 'connected' && !noTabs);
+  const showAgentKeyBar = shouldShowTerminalKeyBar({
+    panelType,
+    hasTabs: !noTabs,
+    keyBarMode,
+    isTouchDevice: true,
+    terminalCollapsed: false,
+  });
   const isFirstConnectionForTab =
     activeTabId !== null && attemptedTabId !== activeTabId;
 
@@ -909,6 +921,17 @@ const MobileSurfaceView = ({
           onRestart={handleRestartPiSession}
           trustPrompt={trustPrompt}
           onTrustResponse={onTrustResponse}
+        />
+      )}
+
+      {showAgentKeyBar && (
+        <TerminalKeyBar
+          sendStdin={sendWebStdin}
+          ctrlActive={ctrlArmed}
+          shiftActive={shiftArmed}
+          setCtrlActive={setCtrlArmed}
+          setShiftActive={setShiftArmed}
+          terminalConnected={status === 'connected'}
         />
       )}
 
