@@ -40,7 +40,7 @@ const migrateLegacyEntry = (raw: unknown): ISessionHistoryEntry | null => {
 
   if (typeof e.id !== 'string' || typeof e.tabId !== 'string') return null;
 
-  const providerId = e.providerId === 'codex' ? 'codex' : 'claude';
+  const providerId = e.providerId === 'codex' || e.providerId === 'pi' ? e.providerId : 'claude';
   const agentSessionId =
     typeof e.agentSessionId === 'string' || e.agentSessionId === null
       ? (e.agentSessionId as string | null)

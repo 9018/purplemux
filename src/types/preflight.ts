@@ -24,6 +24,7 @@ export interface IRuntimePreflightResult {
   git: IToolStatus;
   claude: IAgentRuntimeToolStatus;
   codex: IAgentRuntimeToolStatus;
+  pi: IAgentRuntimeToolStatus;
 }
 
 export const isRuntimeOk = (status: IRuntimePreflightResult): boolean =>

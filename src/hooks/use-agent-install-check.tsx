@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { IRuntimePreflightResult } from '@/types/preflight';
 
-export type TAgentInstallProvider = 'claude' | 'codex';
+export type TAgentInstallProvider = 'claude' | 'codex' | 'pi';
 
 interface IInstallTarget {
   command: string;
@@ -31,7 +31,7 @@ interface IInstallPrompt {
 }
 
 const isInstalled = (status: IRuntimePreflightResult, provider: TAgentInstallProvider): boolean =>
-  provider === 'codex' ? status.codex.installed : status.claude.installed;
+  provider === 'codex' ? status.codex.installed : provider === 'pi' ? status.pi.installed : status.claude.installed;
 
 const fetchRuntimePreflight = async (): Promise<IRuntimePreflightResult | null> => {
   try {
@@ -69,6 +69,15 @@ export const useAgentInstallCheck = () => {
         description: t('codexMissingDescription'),
         confirmLabel: t('codexInstallGuide'),
         action: 'guide',
+      });
+      return false;
+    }
+
+    if (provider === 'pi') {
+      setInstallPrompt({
+        title: 'Pi is not installed',
+        description: 'Install the Pi coding agent and retry.',
+        confirmLabel: tc('close'),
       });
       return false;
     }

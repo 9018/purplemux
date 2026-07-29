@@ -1,10 +1,12 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { piHookEvents } from '@/lib/providers/pi/hook-events';
 import {
   findLatestPiSessionForCwd,
   findPiSessionById,
+  watchSessionsDir,
 } from '@/lib/providers/pi/session-detection';
 
 const writeSession = async (
@@ -24,6 +26,25 @@ const writeSession = async (
 };
 
 describe('Pi session detection', () => {
+  it('forwards matching hook session info immediately and unsubscribes on stop', () => {
+    const onChange = vi.fn();
+    const watcher = watchSessionsDir(12345, onChange, { skipInitial: true, tmuxSession: 'pi-tab' });
+    const info = {
+      status: 'running' as const,
+      sessionId: '019faddc-8913-7d86-bfae-59bcfa7fb535',
+      jsonlPath: '/tmp/pi.jsonl',
+      pid: null,
+      startedAt: null,
+      cwd: '/tmp/project',
+    };
+    piHookEvents.emit('session-info', 'other-tab', info);
+    piHookEvents.emit('session-info', 'pi-tab', info);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    watcher.stop();
+    piHookEvents.emit('session-info', 'pi-tab', info);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
   it('returns the most recently modified Pi session for a cwd across nested directories', async () => {
     const sessionsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'purplemux-pi-sessions-'));
     const projectCwd = '/tmp/project-a';

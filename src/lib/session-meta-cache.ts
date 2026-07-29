@@ -1,6 +1,6 @@
 import type { ISessionMeta } from '@/types/timeline';
 
-export type TMetaCacheProviderId = 'claude' | 'codex';
+export type TMetaCacheProviderId = 'claude' | 'codex' | 'pi';
 
 interface ICacheEntry {
   meta: ISessionMeta;

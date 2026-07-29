@@ -7,6 +7,7 @@ import { translateClaudeHookEvent } from '@/lib/providers/claude/hook-handler';
 import { processCodexHookPayload, shouldEmitCodexHookEvent } from '@/lib/providers/codex/hook-handler';
 import { codexHookEvents } from '@/lib/providers/codex/hook-events';
 import { translatePiHookEvent } from '@/lib/providers/pi/hook-handler';
+import { piHookEvents } from '@/lib/providers/pi/hook-events';
 
 const log = createLogger('hooks');
 
@@ -78,6 +79,7 @@ const handlePiHook = (req: NextApiRequest, res: NextApiResponse) => {
     log.debug({ tmuxSession, event: req.body?.event, reason: 'unknown-session' }, 'pi hook skipped');
     return res.status(204).end();
   }
+  if (translation.sessionInfo) piHookEvents.emit('session-info', tmuxSession, translation.sessionInfo);
   if (translation.event) statusManager.handleProviderEvent('pi', tmuxSession, translation.event);
   return res.status(204).end();
 };

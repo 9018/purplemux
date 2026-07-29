@@ -16,6 +16,7 @@ import {
   isProcessRunning,
 } from '@/lib/process-utils';
 import type { ISessionInfo } from '@/types/timeline';
+import { piHookEvents } from '@/lib/providers/pi/hook-events';
 
 const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
 const DEFAULT_SESSIONS_ROOT = path.join(PI_AGENT_DIR, 'sessions');
@@ -115,6 +116,12 @@ const withMtime = async (meta: IPiSessionMeta): Promise<IPiSessionMeta> => {
   } catch {
     return meta;
   }
+};
+
+const isWithinRoot = (candidate: string, root: string): boolean => {
+  const resolved = path.resolve(candidate);
+  const resolvedRoot = path.resolve(root);
+  return resolved.startsWith(resolvedRoot + path.sep);
 };
 
 export const resolvePiSessionsRoot = async (): Promise<string> => {
@@ -238,7 +245,8 @@ export const detectActiveSession = async (
     if (byId) return runningInfo(found, byId);
     try {
       const explicitPath = path.resolve(found.cwd ?? process.cwd(), sessionArg);
-      const byPath = await readPiSessionMeta(explicitPath);
+      const sessionsRoot = await resolvePiSessionsRoot();
+      const byPath = isWithinRoot(explicitPath, sessionsRoot) ? await readPiSessionMeta(explicitPath) : null;
       if (byPath) return runningInfo(found, await withMtime(byPath));
     } catch {
       // Fall through to cwd discovery.
@@ -260,6 +268,15 @@ export const watchSessionsDir = (
   let stopped = false;
   let currentPid: number | null = null;
   let previousKey = '';
+  const watchedSession = options.tmuxSession;
+
+  const handleSessionInfo = (tmuxSession: string, info: ISessionInfo) => {
+    if (stopped || !watchedSession || tmuxSession !== watchedSession) return;
+    currentPid = info.pid;
+    previousKey = `${info.status}:${info.pid ?? ''}:${info.sessionId ?? ''}:${info.jsonlPath ?? ''}`;
+    onChange(info);
+  };
+  if (watchedSession) piHookEvents.on('session-info', handleSessionInfo);
 
   const poll = async () => {
     if (stopped) return;
@@ -279,6 +296,7 @@ export const watchSessionsDir = (
     stop: () => {
       stopped = true;
       clearInterval(timer);
+      if (watchedSession) piHookEvents.off('session-info', handleSessionInfo);
     },
   };
 };

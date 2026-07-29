@@ -1,10 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import useSessionList from '@/hooks/use-session-list';
 import { useCodexSessions } from '@/hooks/use-codex-sessions';
+import { usePiSessions } from '@/hooks/use-pi-sessions';
 import type { ICodexSessionEntry } from '@/lib/codex-session-list';
+import type { IPiSessionEntry } from '@/lib/pi-session-list';
 import type { ISessionMeta } from '@/types/timeline';
 
-export type TAgentSessionProvider = 'claude' | 'codex';
+export type TAgentSessionProvider = 'claude' | 'codex' | 'pi';
 
 export interface IAgentSessionEntry {
   provider: TAgentSessionProvider;
@@ -52,6 +54,16 @@ const fromCodexSession = (session: ICodexSessionEntry): IAgentSessionEntry => ({
   turnCount: session.turnCount,
 });
 
+const fromPiSession = (session: IPiSessionEntry): IAgentSessionEntry => ({
+  provider: 'pi',
+  sessionId: session.sessionId,
+  key: `pi:${session.jsonlPath}`,
+  startedAt: new Date(session.startedAt).toISOString(),
+  lastActivityAt: new Date(session.lastActivityAt || session.startedAt).toISOString(),
+  firstMessage: session.firstUserMessage,
+  turnCount: session.turnCount,
+});
+
 const useAgentSessions = ({
   tmuxSession,
   enabled,
@@ -64,11 +76,13 @@ const useAgentSessions = ({
   });
 
   const codex = useCodexSessions(cwd, enabled && !!cwd);
+  const pi = usePiSessions(cwd, enabled && !!cwd);
 
   const sessions = useMemo(() => {
     const merged = [
       ...claude.sessions.map(fromClaudeSession),
       ...codex.sessions.map(fromCodexSession),
+      ...pi.sessions.map(fromPiSession),
     ];
 
     merged.sort(
@@ -76,21 +90,22 @@ const useAgentSessions = ({
     );
 
     return merged;
-  }, [claude.sessions, codex.sessions]);
+  }, [claude.sessions, codex.sessions, pi.sessions]);
 
   const refetch = useCallback(async () => {
     await Promise.all([
       claude.refetch(),
       codex.refresh(),
+      pi.refresh(),
     ]);
-  }, [claude, codex]);
+  }, [claude, codex, pi]);
 
   return {
     sessions,
-    isLoading: claude.isLoading || codex.isLoading,
+    isLoading: claude.isLoading || codex.isLoading || pi.isLoading,
     isLoadingMore: claude.isLoadingMore,
     hasMore: claude.hasMore,
-    error: claude.error || (codex.error ? 'codex' : null),
+    error: claude.error || (codex.error ? 'codex' : pi.error ? 'pi' : null),
     refetch,
     loadMore: claude.loadMore,
   };

@@ -5,9 +5,12 @@ import { existsSync, mkdirSync } from 'fs';
 import { type ISessionWatcher } from '@/lib/providers/types';
 import { readTailEntries, parseIncremental, parseJsonlContent } from './session-parser';
 import { CodexParser, createCodexParser, parseCodexContent, readTailCodexEntries } from './session-parser-codex';
+import { readTailPiEntries } from './session-parser-pi';
 import { CODEX_PROVIDER_ID } from '@/lib/providers/codex';
+import { PI_PROVIDER_ID } from '@/lib/providers/pi';
 import { findCodexSessionById } from '@/lib/providers/codex/session-detection';
-import { isCodexJsonlPath } from './path-validation';
+import { findPiSessionById } from '@/lib/providers/pi/session-detection';
+import { isCodexJsonlPath, isPiJsonlPath } from './path-validation';
 import { open as fsOpen } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
@@ -76,6 +79,7 @@ interface IFileWatcher {
   pendingChange: boolean;
   initOffsets: Map<WebSocket, number>;
   codexParser: CodexParser | null;
+  piMode: boolean;
 }
 
 interface IJsonlWatcher {
@@ -112,8 +116,10 @@ const readTimelineSessionStats = async (
   jsonlPath: string,
   sessionId: string,
   isCodex: boolean,
+  isPi = false,
 ): Promise<ISessionStats | null> => {
   if (isCodex) return readCodexTimelineSessionStats(jsonlPath);
+  if (isPi) return null;
   return sessionId ? readSessionStats(sessionId) : null;
 };
 
@@ -221,6 +227,30 @@ const processFileChange = async (fw: IFileWatcher) => {
   }
   fw.processing = true;
   try {
+    if (fw.piMode) {
+      const result = await readTailPiEntries(fw.jsonlPath, MAX_INIT_ENTRIES);
+      fw.offset = result.fileSize;
+      const sessionId = fw.provider.sessionIdFromJsonlPath(fw.jsonlPath) ?? '';
+      const meta = computeInitMeta(result.entries, result.fileSize);
+      const msg: TTimelineServerMessage = {
+        type: 'timeline:init',
+        entries: result.entries,
+        sessionId,
+        totalEntries: result.entries.length,
+        startByteOffset: result.startByteOffset,
+        hasMore: result.hasMore,
+        jsonlPath: fw.jsonlPath,
+        meta,
+        sessionStats: null,
+      };
+      for (const ws of fw.connections) sendJson(ws, msg);
+      const lastMsg = findLastUserMessage(result.entries);
+      if (lastMsg) {
+        await updateTabLastUserMessage(fw.sessionName, lastMsg).catch(() => {});
+        getStatusManager().notifyLastUserMessage(fw.sessionName, lastMsg);
+      }
+      return;
+    }
     const prevOffset = fw.offset;
     const { newEntries, newOffset, pendingBuffer } = fw.codexParser
       ? await fw.codexParser.parseIncremental()
@@ -404,6 +434,7 @@ const subscribeToFile = async (
       return;
     }
     const isCodex = provider.id === CODEX_PROVIDER_ID || isCodexJsonlPath(jsonlPath);
+    const isPi = provider.id === PI_PROVIDER_ID || isPiJsonlPath(jsonlPath);
     fw = {
       watcher: null,
       jsonlPath,
@@ -419,6 +450,7 @@ const subscribeToFile = async (
       pendingChange: false,
       initOffsets: new Map(),
       codexParser: isCodex ? createCodexParser(jsonlPath) : null,
+      piMode: isPi,
     };
     fileWatchers.set(jsonlPath, fw);
   }
@@ -427,7 +459,9 @@ const subscribeToFile = async (
 
   const result = fw.codexParser
     ? await readInitForCodex(fw.codexParser, isNewWatcher, MAX_INIT_ENTRIES)
-    : await readTailEntries(jsonlPath, MAX_INIT_ENTRIES);
+    : fw.piMode
+      ? await readTailPiEntries(jsonlPath, MAX_INIT_ENTRIES)
+      : await readTailEntries(jsonlPath, MAX_INIT_ENTRIES);
 
   if (result.errorCount > 0) {
     sendJson(ws, {
@@ -446,7 +480,7 @@ const subscribeToFile = async (
   const meta = computeInitMeta(result.entries, result.fileSize, firstTimestamp, result.customTitle);
 
   const resolvedSessionId = sessionId ?? provider.sessionIdFromJsonlPath(jsonlPath) ?? '';
-  const sessionStats = await readTimelineSessionStats(jsonlPath, resolvedSessionId, Boolean(fw.codexParser));
+  const sessionStats = await readTimelineSessionStats(jsonlPath, resolvedSessionId, Boolean(fw.codexParser), fw.piMode);
 
   sendJson(ws, {
     type: 'timeline:init',
@@ -510,6 +544,7 @@ const watchForJsonlFile = (
   cwd: string,
   provider: IAgentProvider,
 ) => {
+  if (provider.id === PI_PROVIDER_ID) return;
   cancelJsonlWatcher(sessionName);
 
   const projectDir = cwdToProjectPath(cwd);
@@ -626,6 +661,9 @@ const resolveJsonlPath = async (
 ): Promise<string | null> => {
   if (provider.id === CODEX_PROVIDER_ID) {
     return (await findCodexSessionById(sessionId))?.jsonlPath ?? null;
+  }
+  if (provider.id === PI_PROVIDER_ID) {
+    return (await findPiSessionById(sessionId))?.jsonlPath ?? null;
   }
 
   const cwd = await getSessionCwd(tmuxSession);
@@ -888,8 +926,8 @@ export const handleTimelineConnection = async (ws: WebSocket, request: IncomingM
         }
         for (const c of wsConns) {
           if (c.currentJsonlPath) {
-            const currentFile = path.basename(c.currentJsonlPath, '.jsonl');
-            if (newInfo.sessionId && currentFile !== newInfo.sessionId) {
+            const currentSessionId = provider.sessionIdFromJsonlPath(c.currentJsonlPath);
+            if (newInfo.sessionId && currentSessionId !== newInfo.sessionId) {
               unsubscribeFromFile(c.ws, c.currentJsonlPath);
               c.currentJsonlPath = null;
             } else {

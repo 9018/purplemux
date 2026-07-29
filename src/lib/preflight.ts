@@ -6,6 +6,7 @@ import { buildShellEnv, defaultShell as resolveDefaultShell } from '@/lib/shell-
 import { PRISTINE_ENV } from '@/lib/pristine-env';
 import { claudeProvider } from '@/lib/providers/claude';
 import { runCodexPreflight, invalidateCodexPreflight } from '@/lib/providers/codex/preflight';
+import { runPiPreflight } from '@/lib/providers/pi/preflight';
 import { parseSemanticVersion } from '@/lib/process-utils';
 
 const execFile = promisify(execFileCb);
@@ -147,11 +148,12 @@ export const getCachedPreflightStatus = async (): Promise<IPreflightResult> => {
 
 export const getRuntimePreflightStatus = async (): Promise<IRuntimePreflightResult> => {
   shellPathCache = await resolveShellPathAsync();
-  const [tmux, git, claudeFull, codex] = await Promise.all([
+  const [tmux, git, claudeFull, codex, pi] = await Promise.all([
     checkTool('tmux', ['-V'], parseSemanticVersion),
     checkTool('git', ['--version'], parseSemanticVersion),
     claudeProvider.preflight(),
     runCodexPreflight(),
+    runPiPreflight(),
   ]);
 
   return {
@@ -168,6 +170,7 @@ export const getRuntimePreflightStatus = async (): Promise<IRuntimePreflightResu
       version: codex.version,
       binaryPath: codex.binaryPath,
     },
+    pi,
   };
 };
 
