@@ -7,12 +7,15 @@ import {
   killSession,
   defaultSessionName,
   exitCopyMode,
+  getSessionCwd,
 } from './tmux';
 import { buildShellEnv } from '@/lib/shell-env';
 import { PRISTINE_ENV } from '@/lib/pristine-env';
 import { encodeStdout } from '@/lib/terminal-protocol';
 import { reconcileTabCwd } from '@/lib/layout-store';
 import { createLogger } from '@/lib/logger';
+import { findSharedCodexSession } from '@/lib/providers/codex/shared-session';
+import { createCodexInputLease } from '@/lib/providers/codex/input-lease';
 
 const log = createLogger('terminal');
 
@@ -255,6 +258,9 @@ export const handleConnection = async (ws: WebSocket, request: IncomingMessage, 
   let lastHeartbeat = Date.now();
   let sessionName = '';
   let webStdinQueue = Promise.resolve();
+  let sharedInputId: string | null = null;
+  let sharedInputLease = createCodexInputLease();
+  let sharedInputQueue = Promise.resolve();
   let currentCols = 80;
   let currentRows = 24;
 
@@ -280,15 +286,47 @@ export const handleConnection = async (ws: WebSocket, request: IncomingMessage, 
 
     switch (msg.type) {
       case MSG_STDIN: {
-        ptyProcess.write(textDecoder.decode(msg.payload));
+        const data = textDecoder.decode(msg.payload);
+        sharedInputQueue = sharedInputQueue.then(async () => {
+          if (!sharedInputId) {
+            ptyProcess?.write(data);
+            return;
+          }
+          for (;;) {
+            try {
+              await sharedInputLease.withLease(sharedInputId, async () => {
+                ptyProcess?.write(data);
+              });
+              return;
+            } catch (error) {
+              if ((error as { code?: string })?.code !== 'codex_session_input_busy') throw error;
+              await new Promise((resolve) => setTimeout(resolve, 25));
+            }
+          }
+        }).catch((error) => log.warn(`shared input write failed: ${error instanceof Error ? error.message : error}`));
         break;
       }
       case MSG_WEB_STDIN: {
         const data = textDecoder.decode(msg.payload);
-        webStdinQueue = webStdinQueue
-          .then(() => exitCopyMode(sessionName))
-          .catch(() => {})
-          .then(() => { ptyProcess?.write(data); });
+        webStdinQueue = webStdinQueue.then(() => exitCopyMode(sessionName)).catch(() => {}).then(() => {
+          sharedInputQueue = sharedInputQueue.then(async () => {
+            if (!sharedInputId) {
+              ptyProcess?.write(data);
+              return;
+            }
+            for (;;) {
+              try {
+                await sharedInputLease.withLease(sharedInputId, async () => {
+                  ptyProcess?.write(data);
+                });
+                return;
+              } catch (error) {
+                if ((error as { code?: string })?.code !== 'codex_session_input_busy') throw error;
+                await new Promise((resolve) => setTimeout(resolve, 25));
+              }
+            }
+          }).catch((error) => log.warn(`shared web input write failed: ${error instanceof Error ? error.message : error}`));
+        });
         break;
       }
       case MSG_RESIZE: {
@@ -350,6 +388,14 @@ export const handleConnection = async (ws: WebSocket, request: IncomingMessage, 
       });
       ws.close(1011, 'Session not found');
       return;
+    }
+    const sharedCwd = await getSessionCwd(sessionName);
+    if (sharedCwd) {
+      const shared = await findSharedCodexSession(sharedCwd, { tmuxSessionName: sessionName });
+      if (shared) {
+        sharedInputId = shared.native_session_id || shared.control_session_id;
+        sharedInputLease = createCodexInputLease({ owner: 'purplemux' });
+      }
     }
     if (ws.readyState !== WebSocket.OPEN) return;
     currentCols = urlCols > 0 ? urlCols : (pending.resize?.cols || 80);

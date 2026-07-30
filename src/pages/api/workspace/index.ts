@@ -7,6 +7,7 @@ import { checkAgentAvailabilityForPanelType, toAgentAvailabilityError } from '@/
 import { sendKeys } from '@/lib/tmux';
 import { getStatusManager } from '@/lib/status-manager';
 import { createLogger } from '@/lib/logger';
+import { findSharedCodexSessionByNativeId } from '@/lib/providers/codex/shared-session';
 
 const log = createLogger('workspace-api');
 
@@ -37,7 +38,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       directory && typeof directory === 'string' ? directory : os.homedir();
 
     try {
-      const layoutOptions = provider ? { panelType: provider.panelType } : undefined;
+      const shared = provider?.id === 'codex' && resumeSessionId
+        ? await findSharedCodexSessionByNativeId(resumeSessionId, resolvedDirectory)
+        : null;
+      const layoutOptions = provider
+        ? { panelType: provider.panelType, ...(shared ? {
+          sharedSession: {
+            tmuxSessionName: shared.tmux_session_name,
+            nativeSessionId: shared.native_session_id,
+            nativeSessionPath: shared.native_session_path || null,
+          },
+        } : {}) }
+        : undefined;
       const workspace = await createWorkspace(resolvedDirectory, name, layoutOptions);
 
       const layout = await readLayoutFile(resolveLayoutFile(workspace.id));
@@ -63,7 +75,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         });
       }
 
-      if (resumeSessionId && provider && defaultTab) {
+      if (resumeSessionId && provider && defaultTab && !shared) {
         setTimeout(async () => {
           try {
             const resumeCmd = await provider.buildResumeCommand(resumeSessionId, { workspaceId: workspace.id });

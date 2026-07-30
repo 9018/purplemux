@@ -24,6 +24,7 @@ tmux socket (purple)
 
 - **Socket name**: `purple` (`-L purple`). Fully isolated from the system tmux.
 - **Session naming**: `pt-{workspaceId}-{paneId}-{tabId}` format
+- GPTWork shared sessions use `pt-gptwork-*` names and are discovered from GPTWork manifests; they remain externally owned by GPTWork.
 - **Config file**: `src/config/tmux.conf` (prefix disabled, status bar off, mouse on)
 
 ---
@@ -92,7 +93,7 @@ Defined in `src/lib/terminal-protocol.ts` and imported by `terminal-server.ts`.
 | `MSG_RESIZE` | `0x02` | client → server | Terminal resize (cols: u16, rows: u16) |
 | `MSG_HEARTBEAT` | `0x03` | both | Connection keep-alive (30s interval, 90s timeout) |
 | `MSG_KILL_SESSION` | `0x04` | client → server | Request session termination |
-| `MSG_WEB_STDIN` | `0x05` | client → server | Web input (delivered after copy-mode exit) |
+| `MSG_WEB_STDIN` | `0x05` | client → server | Web input (delivered after copy-mode exit; shared Codex writes use the cross-process lease) |
 
 ### Connection Flow
 

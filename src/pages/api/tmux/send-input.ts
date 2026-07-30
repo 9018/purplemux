@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { hasSession, sendRawKeys } from '@/lib/tmux';
+import { getSessionCwd, hasSession, sendRawKeys } from '@/lib/tmux';
+import { findSharedCodexSession } from '@/lib/providers/codex/shared-session';
+import { createCodexInputLease } from '@/lib/providers/codex/input-lease';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('tmux');
@@ -22,9 +24,20 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   try {
-    await sendRawKeys(session, input);
+    const cwd = await getSessionCwd(session);
+    const shared = cwd ? await findSharedCodexSession(cwd, { tmuxSessionName: session }) : null;
+    if (shared?.native_session_id || shared?.control_session_id) {
+      const lease = createCodexInputLease({ owner: 'purplemux' });
+      const leaseId = shared.native_session_id || shared.control_session_id;
+      await lease.withLease(leaseId, () => sendRawKeys(session, input));
+    } else {
+      await sendRawKeys(session, input);
+    }
     return res.status(200).json({ ok: true });
   } catch (err) {
+    if ((err as { code?: string })?.code === 'codex_session_input_busy') {
+      return res.status(409).json({ error: 'input-busy', retryable: true });
+    }
     log.error(`send-input failed: ${err instanceof Error ? err.message : err}`);
     return res.status(500).json({ error: 'Failed to send input' });
   }

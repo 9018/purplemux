@@ -49,6 +49,9 @@ export interface ITab {
   webUrl?: string | null;
   terminalRatio?: number;
   terminalCollapsed?: boolean;
+  /** True when the tab attaches to a session owned by GPTWork or another host. */
+  sharedSession?: boolean;
+  sharedNativeSessionId?: string | null;
 }
 
 export interface ISplitNode {

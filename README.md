@@ -67,6 +67,20 @@ Plus
 - **Usage analytics** — Claude + Codex tokens, cost, per-project breakdowns, and daily AI reports
 - **Rate limits** — 5-hour / 7-day remaining usage with reset countdown for supported providers
 
+### Shared GPTWork Codex sessions
+
+purplemux can attach to a Codex runtime started by GPTWork instead of creating a second Codex process. Set GPTWork to use the tmux transport:
+
+```dotenv
+GPTWORK_CODEX_TUI_TRANSPORT=tmux
+```
+
+Both applications use the isolated `tmux -L purple` server. GPTWork writes a manifest under `.gptwork/codex-sessions/manifests/`; when purplemux opens the matching `pt-gptwork-*` session, it reads the native Codex session binding and attaches to the existing PTY. The native history remains in `~/.codex/sessions/**/*.jsonl`.
+
+GPTWork and purplemux may both send prompts or corrections. A shared filesystem lease serializes each short write so input cannot interleave; it does not assign exclusive ownership to either application. If the browser disconnects or GPTWork restarts, the next client reattaches the persisted tmux session. purplemux does not run `codex resume` for an existing binding, and removing a shared tab does not kill GPTWork's tmux session. New GPTWork TUI flows create no subagents unless the task entrypoint or user prompt explicitly requests them.
+
+See [docs/SHARED-CODEX.md](docs/SHARED-CODEX.md) for the setup and troubleshooting flow.
+
 ### Mobile & accessibility
 
 - **Responsive UI** — Terminal and timeline on phones and tablets

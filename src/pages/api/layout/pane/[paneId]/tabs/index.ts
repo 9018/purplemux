@@ -40,7 +40,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   try {
-    const tab = await addTabToPane(wsId, paneId, name, cwd, panelType, command);
+    const tab = await addTabToPane(wsId, paneId, name, cwd, panelType, command, resumeSessionId);
     if (!tab) {
       return res.status(404).json({ error: 'Pane not found' });
     }

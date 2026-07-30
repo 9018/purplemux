@@ -20,6 +20,8 @@ import type { TCliState } from '@/types/timeline';
 import type { IAgentProvider } from '@/lib/providers/types';
 import { claudeProvider } from '@/lib/providers/claude';
 import { defaultTabNameForPanelType, resolveTabNameForPanelTypeChange } from '@/lib/tab-name';
+import { getSessionCwd } from '@/lib/tmux';
+import { findSharedCodexSession, findSharedCodexSessionByNativeId } from '@/lib/providers/codex/shared-session';
 
 const log = createLogger('layout');
 
@@ -207,11 +209,27 @@ export const crossCheckLayout = async (
       let maxOrder = firstPane.tabs.length > 0 ? Math.max(...firstPane.tabs.map((t) => t.order)) : -1;
       for (const sessionName of orphans) {
         maxOrder++;
+        const orphanCwd = sessionName.startsWith('pt-gptwork-')
+          ? await getSessionCwd(sessionName)
+          : null;
+        const shared = orphanCwd
+          ? await findSharedCodexSession(orphanCwd, { tmuxSessionName: sessionName })
+          : null;
         firstPane.tabs.push({
           id: generateTabId(),
           sessionName,
-          name: '',
+          name: shared ? 'GPTWork Codex' : '',
           order: maxOrder,
+          ...(shared ? {
+            panelType: 'codex-cli' as const,
+            cwd: shared.cwd,
+            agentState: {
+              providerId: 'codex',
+              sessionId: shared.native_session_id,
+              jsonlPath: shared.native_session_path || null,
+              summary: null,
+            },
+          } : {}),
         });
       }
       if (!firstPane.activeTabId && firstPane.tabs.length > 0) {
@@ -233,12 +251,26 @@ export const crossCheckLayout = async (
 
 export interface ICreateLayoutOptions {
   panelType?: TPanelType;
+  sharedSession?: { tmuxSessionName: string; nativeSessionId: string | null; nativeSessionPath?: string | null };
 }
 
 export const createDefaultLayout = async (wsId: string, cwd: string, options?: ICreateLayoutOptions): Promise<ILayoutData> => {
   const { pane, tab } = createDefaultPaneNode(wsId, cwd);
   if (options?.panelType) tab.panelType = options.panelType;
-  await createSession(tab.sessionName, 80, 24, cwd);
+  if (options?.sharedSession) {
+    tab.sessionName = options.sharedSession.tmuxSessionName;
+    tab.name = 'GPTWork Codex';
+    tab.sharedSession = true;
+    tab.sharedNativeSessionId = options.sharedSession.nativeSessionId;
+    tab.agentState = {
+      providerId: 'codex',
+      sessionId: options.sharedSession.nativeSessionId,
+      jsonlPath: options.sharedSession.nativeSessionPath || null,
+      summary: null,
+    };
+  } else {
+    await createSession(tab.sessionName, 80, 24, cwd);
+  }
   return {
     root: pane,
     activePaneId: pane.id,
@@ -288,7 +320,7 @@ export const deletePane = async (
   }
 };
 
-export const addTabToPane = async (wsId: string, paneId: string, name?: string, cwd?: string, panelType?: string, command?: string): Promise<ITab | null> =>
+export const addTabToPane = async (wsId: string, paneId: string, name?: string, cwd?: string, panelType?: string, command?: string, resumeSessionId?: string): Promise<ITab | null> =>
   withLock(async () => {
     const filePath = resolveLayoutFile(wsId);
     const layout = await readLayoutFile(filePath);
@@ -299,10 +331,13 @@ export const addTabToPane = async (wsId: string, paneId: string, name?: string, 
 
     const isWebBrowser = panelType === 'web-browser';
     const tabId = generateTabId();
-    const sessionName = workspaceSessionName(wsId, paneId, tabId);
+    const shared = panelType === 'codex-cli' && resumeSessionId && cwd
+      ? await findSharedCodexSessionByNativeId(resumeSessionId, cwd)
+      : null;
+    const sessionName = shared?.tmux_session_name || workspaceSessionName(wsId, paneId, tabId);
     if (!isWebBrowser) {
-      await createSession(sessionName, 80, 24, cwd);
-      if (command) {
+      if (!shared) await createSession(sessionName, 80, 24, cwd);
+      if (command && !shared) {
         await sendKeys(sessionName, command);
       }
     }
@@ -310,7 +345,23 @@ export const addTabToPane = async (wsId: string, paneId: string, name?: string, 
     const nextOrder = pane.tabs.length > 0 ? Math.max(...pane.tabs.map((t) => t.order)) + 1 : 0;
     const defaultName = defaultTabNameForPanelType(panelType as ITab['panelType']);
     const tabName = name?.trim() || defaultName;
-    const tab: ITab = { id: tabId, sessionName, name: tabName, order: nextOrder, ...(cwd ? { cwd } : {}), ...(panelType ? { panelType: panelType as ITab['panelType'] } : {}) };
+    const tab: ITab = {
+      id: tabId,
+      sessionName,
+      name: tabName,
+      order: nextOrder,
+      ...(cwd ? { cwd } : {}),
+      ...(panelType ? { panelType: panelType as ITab['panelType'] } : {}),
+      ...(shared ? { sharedSession: true, sharedNativeSessionId: shared.native_session_id } : {}),
+      ...(shared?.native_session_id ? {
+        agentState: {
+          providerId: 'codex',
+          sessionId: shared.native_session_id,
+          jsonlPath: shared.native_session_path || null,
+          summary: null,
+        },
+      } : {}),
+    };
 
     pane.tabs.push(tab);
     pane.activeTabId = tabId;
@@ -332,12 +383,12 @@ export const removeTabFromPane = async (wsId: string, paneId: string, tabId: str
 
     const tab = pane.tabs.find((t) => t.id === tabId);
     if (!tab) return null;
-    return { sessionName: tab.sessionName, panelType: tab.panelType };
+    return { sessionName: tab.sessionName, panelType: tab.panelType, sharedSession: tab.sharedSession };
   });
 
   if (!tabInfo) return false;
 
-  if (tabInfo.panelType !== 'web-browser') {
+  if (tabInfo.panelType !== 'web-browser' && !tabInfo.sharedSession) {
     await killSession(tabInfo.sessionName);
   }
 
@@ -404,6 +455,12 @@ export const restartTabSession = async (wsId: string, paneId: string, tabId: str
 
     const exists = await hasSession(tab.sessionName);
     if (exists) return true;
+
+    // A shared tab is only an attachment to GPTWork's Codex runtime. If the
+    // owner session disappeared, do not create an empty replacement here:
+    // that would look like a recovery while actually starting a second,
+    // unrelated runtime.
+    if (tab.sharedSession) return false;
 
     const effectiveCwd = await resolveExistingDir(tab.cwd);
     const cwdLost = Boolean(tab.cwd && tab.cwd !== effectiveCwd);
@@ -692,7 +749,9 @@ export const closePaneInLayout = async (wsId: string, paneId: string): Promise<I
     if (!pane) return null;
     if (collectPanes(layout.root).length <= 1) return null;
 
-    sessions = pane.tabs.filter((t) => t.panelType !== 'web-browser').map((t) => t.sessionName);
+    sessions = pane.tabs
+      .filter((t) => t.panelType !== 'web-browser' && !t.sharedSession)
+      .map((t) => t.sessionName);
     const wasEqualized = isEqualized(layout.root);
     removePaneWithFocus(layout, paneId);
     if (wasEqualized) {
