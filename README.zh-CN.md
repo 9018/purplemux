@@ -24,7 +24,9 @@ npx purplemux@latest
 
 ## 为什么选择 purplemux
 
-- **多会话仪表盘** — 一眼掌握所有 Claude Code 与 Codex 会话的「运行中 / 等待输入」状态
+- **多会话仪表盘** — 一眼掌握所有 Claude Code、Codex、Pi 与 omp 会话的「运行中 / 等待输入」状态
+- **Pi 与 omp 原生支持** — 为 pi-coding-agent 与 Oh My Pi 提供专属面板:聊天时间线、会话列表、状态倒计时、`--resume` / `--session` 重开全部可用
+- **会话跟随标签页** — 切换 tab 后聊天区立即显示对应会话;TUI 内 `/resume`(不带命令行参数)通过 `session_before_switch` 钩子被实时跟踪
 - **速率限制监控** — 显示 5 小时 / 7 天剩余额度及重置倒计时
 - **推送通知** — 任务完成或需要输入时,桌面与移动端推送提醒
 - **移动端 & 多设备** — 在手机、平板或其他桌面都能访问同一会话

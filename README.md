@@ -26,7 +26,9 @@ Deploying from source (agent-friendly guide): see [DEPLOYMENT.md](docs/DEPLOYMEN
 
 ## Why purplemux
 
-- **Multi-session dashboard** — See working/needs-input status for every Claude Code and Codex session at a glance
+- **Multi-session dashboard** — See working/needs-input status for every Claude Code, Codex, Pi, and omp session at a glance
+- **Pi & omp support** — Native panels for [pi-coding-agent](https://github.com/earendil-works/pi-coding-agent) and Oh My Pi; chat timelines, session lists, countdown timers, and `--resume` / `--session` relaunch all work in-tab
+- **Session-follows-tab** — Switch tabs and the chat pane immediately shows the right session; in-app `/resume` (TUI, no cmdline args) is tracked via `session_before_switch` hooks, and session detection prefers explicit flags over cwd heuristics
 - **Rate limit monitoring** — 5-hour / 7-day remaining usage with reset countdown
 - **Push notifications** — Desktop and mobile alerts when a task finishes or needs input
 - **Mobile & multi-device** — Reach the same session from a phone, tablet, or another desktop
