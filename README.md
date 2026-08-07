@@ -20,7 +20,7 @@ Open [http://localhost:8022](http://localhost:8022) in your browser. Done.
 
 > Requires Node.js 20+ and tmux. macOS or Linux.
 
-Prefer a native app? Grab the macOS Electron build from the [latest release](https://github.com/subicura/purplemux/releases/latest) (`.dmg` for Apple Silicon & Intel).
+Prefer a native app? Grab the macOS Electron build from the [latest release](https://github.com/9018/purplemux/releases/latest) (`.dmg` for Apple Silicon & Intel).
 
 Deploying from source (agent-friendly guide): see [DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -148,7 +148,7 @@ purplemux tab create -w WS -t agent-sessions
 ### Run from source
 
 ```bash
-git clone https://github.com/subicura/purplemux.git
+git clone git@github.com:9018/purplemux.git
 cd purplemux
 pnpm install
 pnpm start

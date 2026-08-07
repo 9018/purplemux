@@ -4,7 +4,7 @@
 
 一屏纵览所有会话,在手机上也毫无中断。
 
-简体中文 | <a href="README.md">English</a> | <a href="README.ko.md">한국어</a> | <a href="README.ja.md">日本語</a> | <a href="README.zh-TW.md">繁體中文</a> | <a href="README.de.md">Deutsch</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.ru.md">Русский</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.tr.md">Türkçe</a>
+简体中文 | <a href="README.md">English</a>
 
 ![purplemux](docs/images/screenshot.png)
 
@@ -20,7 +20,7 @@ npx purplemux@latest
 
 > 需要 Node.js 20+ 和 tmux。macOS 或 Linux。
 
-想用原生应用?可从[最新发布](https://github.com/subicura/purplemux/releases/latest)下载 macOS Electron 版(适用于 Apple Silicon 与 Intel 的 `.dmg`)。
+想用原生应用?可从[最新发布](https://github.com/9018/purplemux/releases/latest)下载 macOS Electron 版(适用于 Apple Silicon 与 Intel 的 `.dmg`)。
 
 ## 为什么选择 purplemux
 
@@ -75,7 +75,7 @@ npx purplemux@latest
 - **多设备同步** — 工作区变更实时同步
 - **Tailscale** — 通过 WireGuard 加密隧道从外部进行 HTTPS 访问
 - **密码认证** — scrypt 哈希,即便对外暴露也安全
-- **多语言支持** — 한국어、English、日本語、中文 等 11 种语言
+- **多语言支持** — English、简体中文
 
 ## 支持的平台
 
@@ -132,7 +132,7 @@ purplemux tab create -w WS -t agent-sessions
 ### 从源码运行
 
 ```bash
-git clone https://github.com/subicura/purplemux.git
+git clone git@github.com:9018/purplemux.git
 cd purplemux
 pnpm install
 pnpm start
