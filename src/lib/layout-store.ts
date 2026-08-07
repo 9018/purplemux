@@ -22,8 +22,13 @@ import { claudeProvider } from '@/lib/providers/claude';
 import { defaultTabNameForPanelType, resolveTabNameForPanelTypeChange } from '@/lib/tab-name';
 import { getSessionCwd } from '@/lib/tmux';
 import { findSharedCodexSession, findSharedCodexSessionByNativeId } from '@/lib/providers/codex/shared-session';
+import { getWorkspaceById } from '@/lib/workspace-store';
 
 const log = createLogger('layout');
+
+// Agent CLI tabs always launch inside the workspace root directory, never the
+// arbitrary cwd of whichever tab happens to be active in the pane (e.g. /tmp).
+const AGENT_CLI_PANEL_TYPES = new Set<string>(['claude-code', 'codex-cli', 'pi-cli', 'omp-cli']);
 
 const BASE_DIR = path.join(os.homedir(), '.purplemux');
 
@@ -330,13 +335,26 @@ export const addTabToPane = async (wsId: string, paneId: string, name?: string, 
     if (!pane) return null;
 
     const isWebBrowser = panelType === 'web-browser';
+    const isAgentCli = typeof panelType === 'string' && AGENT_CLI_PANEL_TYPES.has(panelType);
     const tabId = generateTabId();
     const shared = panelType === 'codex-cli' && resumeSessionId && cwd
       ? await findSharedCodexSessionByNativeId(resumeSessionId, cwd)
       : null;
     const sessionName = shared?.tmux_session_name || workspaceSessionName(wsId, paneId, tabId);
+    // Agent CLI tabs always launch inside the workspace root directory, never
+    // the arbitrary cwd of whichever tab happens to be active in the pane.
+    let resolvedCwd = cwd;
+    if (!isWebBrowser && isAgentCli) {
+      try {
+        const ws = await getWorkspaceById(wsId);
+        const rootDir = ws?.directories?.[0];
+        if (rootDir) resolvedCwd = rootDir;
+      } catch {
+        // keep the provided cwd when the workspace lookup fails
+      }
+    }
     if (!isWebBrowser) {
-      if (!shared) await createSession(sessionName, 80, 24, cwd);
+      if (!shared) await createSession(sessionName, 80, 24, resolvedCwd);
       if (command && !shared) {
         await sendKeys(sessionName, command);
       }
@@ -350,7 +368,7 @@ export const addTabToPane = async (wsId: string, paneId: string, name?: string, 
       sessionName,
       name: tabName,
       order: nextOrder,
-      ...(cwd ? { cwd } : {}),
+      ...(resolvedCwd ? { cwd: resolvedCwd } : {}),
       ...(panelType ? { panelType: panelType as ITab['panelType'] } : {}),
       ...(shared ? { sharedSession: true, sharedNativeSessionId: shared.native_session_id } : {}),
       ...(shared?.native_session_id ? {

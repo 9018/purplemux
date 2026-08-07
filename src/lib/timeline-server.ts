@@ -8,6 +8,7 @@ import { CodexParser, createCodexParser, parseCodexContent, readTailCodexEntries
 import { readTailPiEntries } from './session-parser-pi';
 import { CODEX_PROVIDER_ID } from '@/lib/providers/codex';
 import { PI_PROVIDER_ID } from '@/lib/providers/pi';
+import { OMP_PROVIDER_ID, OMP_SESSIONS_ROOT } from '@/lib/providers/omp';
 import { findCodexSessionById } from '@/lib/providers/codex/session-detection';
 import { findPiSessionById } from '@/lib/providers/pi/session-detection';
 import { isCodexJsonlPath, isPiJsonlPath } from './path-validation';
@@ -437,7 +438,7 @@ const subscribeToFile = async (
       return;
     }
     const isCodex = provider.id === CODEX_PROVIDER_ID || isCodexJsonlPath(jsonlPath);
-    const isPi = provider.id === PI_PROVIDER_ID || isPiJsonlPath(jsonlPath);
+    const isPi = provider.id === PI_PROVIDER_ID || provider.id === OMP_PROVIDER_ID || isPiJsonlPath(jsonlPath);
     fw = {
       watcher: null,
       jsonlPath,
@@ -668,6 +669,9 @@ const resolveJsonlPath = async (
   if (provider.id === PI_PROVIDER_ID) {
     return (await findPiSessionById(sessionId))?.jsonlPath ?? null;
   }
+  if (provider.id === OMP_PROVIDER_ID) {
+    return (await findPiSessionById(sessionId, { sessionsRoot: OMP_SESSIONS_ROOT }))?.jsonlPath ?? null;
+  }
 
   const cwd = await getSessionCwd(tmuxSession);
   if (!cwd) return null;
@@ -747,6 +751,7 @@ export const handleTimelineConnection = async (ws: WebSocket, request: IncomingM
 
   const panelType = url.searchParams.get('panelType') ?? 'claude-code';
   const provider = getProviderByPanelType(panelType);
+  log.debug({ sessionName, panelType, providerId: provider?.id }, 'timeline ws connect');
   if (!provider) {
     ws.close(1008, 'Unknown panel type');
     return;
@@ -830,6 +835,7 @@ export const handleTimelineConnection = async (ws: WebSocket, request: IncomingM
 
   const hintSessionId = url.searchParams.get('agentSessionId') ?? url.searchParams.get('claudeSessionId');
   const sessionInfo = await provider.detectActiveSession(panePid);
+  log.debug({ sessionName, status: sessionInfo.status, sessionId: sessionInfo.sessionId, jsonlPath: sessionInfo.jsonlPath, hintSessionId }, 'timeline detect');
 
   if (conn.cleaned) return;
 
@@ -860,13 +866,29 @@ export const handleTimelineConnection = async (ws: WebSocket, request: IncomingM
 
   const effectiveSessionId = sessionInfo.sessionId ?? hintSessionId;
 
-  if (sessionInfo.jsonlPath) {
+  // The tab's agentSessionId (hint) comes from the agent hook (extension) and is
+  // authoritative for which session belongs to which tab — especially when
+  // several tabs share the same cwd. Detect's cwd-based guess must not shadow it.
+  const hintResolved = hintSessionId
+    ? await resolveJsonlPath(sessionName, hintSessionId, provider)
+    : null;
+
+  if (sessionInfo.status === 'running' && sessionInfo.jsonlPath && sessionInfo.explicit === true) {
+    // Explicit --session (or by-id) detection: the process itself tells us.
     conn.currentJsonlPath = sessionInfo.jsonlPath;
     if (sessionInfo.sessionId) {
       await updateTabAgentSessionId(conn.sessionName, provider, sessionInfo.sessionId).catch(() => {});
     }
     await subscribeAndUpdateSummary(ws, sessionInfo.jsonlPath, sessionInfo.sessionId ?? undefined, conn.sessionName, provider);
+  } else if (hintResolved) {
+    log.debug({ sessionName, hintSessionId }, 'timeline init from hint');
+    conn.currentJsonlPath = hintResolved;
+    await subscribeAndUpdateSummary(ws, hintResolved, hintSessionId as string, conn.sessionName, provider);
+  } else if (sessionInfo.jsonlPath) {
+    conn.currentJsonlPath = sessionInfo.jsonlPath;
+    await subscribeAndUpdateSummary(ws, sessionInfo.jsonlPath, sessionInfo.sessionId ?? undefined, conn.sessionName, provider);
   } else if (effectiveSessionId) {
+    log.debug({ sessionName, effectiveSessionId }, 'timeline resolve jsonl by id');
     if (sessionInfo.sessionId) {
       await updateTabAgentSessionId(conn.sessionName, provider, sessionInfo.sessionId).catch(() => {});
     }

@@ -106,3 +106,36 @@ export const translatePiHookEvent = (payload: IPiHookPayload): IAgentHookTransla
   return {};
 };
 
+/** Parse the session record from a jsonl file to obtain its sessionId. */
+export const readHookSessionMeta = async (jsonlPath: string): Promise<{ sessionId: string; jsonlPath: string } | null> => {
+  try {
+    const { createReadStream } = await import('node:fs');
+    const readline = await import('node:readline');
+    const rl = readline.createInterface({ input: createReadStream(jsonlPath, { encoding: 'utf-8' }), crlfDelay: Infinity });
+    let scanned = 0;
+    try {
+      for await (const line of rl) {
+        if (++scanned > 40) break;
+        if (!line.trim()) continue;
+        try {
+          const parsed = JSON.parse(line) as { type?: string; id?: string };
+          if (parsed.type === 'session' && typeof parsed.id === 'string' && parsed.id) {
+            return { sessionId: parsed.id, jsonlPath };
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    } finally {
+      rl.close();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const processHookSessionSwitch = async (targetFile: string): Promise<{ sessionId: string; jsonlPath: string } | null> => {
+  return readHookSessionMeta(targetFile);
+};
+

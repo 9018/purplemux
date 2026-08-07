@@ -3,12 +3,12 @@ import { t } from '@/lib/i18n';
 import type { TPanelType } from '@/types/terminal';
 import type { TCliState } from '@/types/timeline';
 
-type TAgentPanelType = Extract<TPanelType, 'claude-code' | 'codex-cli' | 'pi-cli'>;
+type TAgentPanelType = Extract<TPanelType, 'claude-code' | 'codex-cli' | 'pi-cli' | 'omp-cli'>;
 
 export const isAgentPanel = (
   panelType: TPanelType | undefined,
 ): panelType is TAgentPanelType =>
-  panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli';
+  panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli' || panelType === 'omp-cli';
 
 export const isAgentRunning = (cliState: TCliState | undefined): boolean =>
   cliState !== undefined && cliState !== 'inactive' && cliState !== 'unknown';
@@ -17,6 +17,7 @@ export const getAgentPanelTypeFromProvider = (providerId: string | undefined): T
   if (providerId === 'claude') return 'claude-code';
   if (providerId === 'codex') return 'codex-cli';
   if (providerId === 'pi') return 'pi-cli';
+  if (providerId === 'omp') return 'omp-cli';
   return undefined;
 };
 
@@ -24,6 +25,7 @@ const agentDisplayName = (panelType: TPanelType | undefined): string => {
   if (panelType === 'claude-code') return 'Claude';
   if (panelType === 'codex-cli') return 'Codex';
   if (panelType === 'pi-cli') return 'Pi';
+  if (panelType === 'omp-cli') return 'Omp';
   return '';
 };
 

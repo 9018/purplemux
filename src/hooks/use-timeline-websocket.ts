@@ -28,7 +28,7 @@ interface IUseTimelineWebSocketOptions {
   sessionName: string;
   agentSessionId?: string | null;
   claudeSessionId?: string | null;
-  panelType?: 'claude-code' | 'codex-cli' | 'pi-cli';
+  panelType?: 'claude-code' | 'codex-cli' | 'pi-cli' | 'omp-cli';
   enabled: boolean;
   onInit: (entries: ITimelineEntry[], totalEntries: number, sessionId: string, summary?: string, meta?: IInitMeta, startByteOffset?: number, hasMore?: boolean, jsonlPath?: string | null, isClaudeStarting?: boolean, sessionStats?: ISessionStats | null) => void;
   onAppend: (entries: ITimelineEntry[]) => void;

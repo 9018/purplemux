@@ -14,10 +14,15 @@ export interface IAgentLaunchCommandOptions {
 export interface IAgentSessionWatchOptions {
   skipInitial?: boolean;
   tmuxSession?: string;
+  matches?: (args: string) => boolean;
+  sessionsRoot?: string;
+  agentDir?: string;
 }
 
 export interface IAgentSessionDetectionOptions {
   allowCwdFallback?: boolean;
+  sessionsRoot?: string;
+  agentDir?: string;
 }
 
 export interface ISubscription {

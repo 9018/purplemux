@@ -61,12 +61,18 @@ export const getProcessStartTimeMs = async (
   options?: { timeoutMs?: number },
 ): Promise<number | null> => {
   try {
-    const { stdout } = await execFile(
-      'ps', ['-p', String(pid), '-o', 'lstart='],
-      options?.timeoutMs ? { timeout: options.timeoutMs } : {},
-    );
-    const parsed = Date.parse(stdout.trim().replace(/\s+/g, ' '));
-    return Number.isFinite(parsed) ? parsed : null;
+    const [stat, procStat] = await Promise.all([
+      fs.readFile(`/proc/${pid}/stat`, 'utf8'),
+      fs.readFile('/proc/stat', 'utf8'),
+    ]);
+    // comm may contain spaces/parens; slice after the last ')' then fields
+    // 3..N of /proc/pid/stat. starttime is field 22 => index 19 after comm.
+    const afterComm = stat.slice(stat.lastIndexOf(')') + 1).trim().split(/\s+/);
+    const starttime = Number(afterComm[19]);
+    const btime = Number(/\nbtime (\d+)/.exec(procStat)?.[1]);
+    if (!Number.isFinite(starttime) || !Number.isFinite(btime)) return null;
+    const CLK_TCK = 100;
+    return (btime + starttime / CLK_TCK) * 1000;
   } catch {
     return null;
   }

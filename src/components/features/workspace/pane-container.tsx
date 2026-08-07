@@ -22,11 +22,13 @@ import { useShallow } from 'zustand/react/shallow';
 import { buildClaudeLaunchCommand } from '@/lib/providers/claude/client';
 import { fetchCodexLaunchCommand } from '@/lib/providers/codex/client';
 import { fetchPiLaunchCommand } from '@/lib/providers/pi/client';
+import { fetchOmpLaunchCommand } from '@/lib/providers/omp/client';
 import { sendCodexQuitCommand } from '@/lib/agent-terminal-commands';
 import TerminalContainer from '@/components/features/workspace/terminal-container';
 import ClaudeCodePanel from '@/components/features/workspace/claude-code-panel';
 import CodexPanel from '@/components/features/workspace/codex-panel';
 import PiPanel from '@/components/features/workspace/pi-panel';
+import OmpPanel from '@/components/features/workspace/omp-panel';
 import AgentSessionsPanel from '@/components/features/workspace/agent-sessions-panel';
 import WebInputBar from '@/components/features/workspace/web-input-bar';
 import QuickPromptBar from '@/components/features/workspace/quick-prompt-bar';
@@ -133,8 +135,9 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
   const isClaudeCode = activePanelType === 'claude-code';
   const isCodex = activePanelType === 'codex-cli';
   const isPi = activePanelType === 'pi-cli';
+  const isOmp = activePanelType === 'omp-cli';
   const isAgentSessionList = activePanelType === 'agent-sessions';
-  const isAgentPanel = isClaudeCode || isCodex || isPi;
+  const isAgentPanel = isClaudeCode || isCodex || isPi || isOmp;
   const isWebBrowser = activePanelType === 'web-browser';
   const isDiff = activePanelType === 'diff';
   const { ensureAgentInstalled, installDialogs } = useAgentInstallCheck();
@@ -610,7 +613,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
 
     connectedSessionRef.current = tab.sessionName;
     const { cols, rows } = fit();
-    const isAgentTab = tab.panelType === 'claude-code' || tab.panelType === 'codex-cli' || tab.panelType === 'pi-cli';
+    const isAgentTab = tab.panelType === 'claude-code' || tab.panelType === 'codex-cli' || tab.panelType === 'pi-cli' || tab.panelType === 'omp-cli';
     const initialSize = normalizeTerminalSize(
       cols,
       rows,
@@ -881,6 +884,10 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     (resumeSessionId?: string | null) => fetchPiLaunchCommand(layoutWsId, resumeSessionId),
     [layoutWsId],
   );
+  const buildOmpCommand = useCallback(
+    (resumeSessionId?: string | null) => fetchOmpLaunchCommand(layoutWsId, resumeSessionId),
+    [layoutWsId],
+  );
 
   const markAgentLaunch = useCallback((tabId: string, options?: { resetAgentSession?: boolean }) => {
     fetch('/api/status/agent-launch', {
@@ -919,6 +926,38 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
     useTabStore.getState().setSessionView(activeTabId, 'check');
     sendStdin(`${command}\r`);
   }, [activeTabId, buildPiCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status]);
+
+  const handleNewOmpSession = useCallback(async () => {
+    if (status !== 'connected' || !activeTabId) return;
+    if (!await ensureAgentInstalled('omp')) return;
+    let command: string;
+    try {
+      command = await buildOmpCommand();
+    } catch {
+      toast.error('Omp launch failed. Check the terminal.');
+      return;
+    }
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab?.sessionName) {
+      try {
+        const res = await fetch('/api/agent/relaunch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: tab.sessionName, command, workspaceId: layoutWsId }),
+        });
+        if (res.ok) {
+          markAgentLaunch(activeTabId, { resetAgentSession: true });
+          useTabStore.getState().setSessionView(activeTabId, 'check');
+          return;
+        }
+      } catch {
+        // fall through to legacy stdin launch
+      }
+    }
+    markAgentLaunch(activeTabId, { resetAgentSession: true });
+    useTabStore.getState().setSessionView(activeTabId, 'check');
+    sendStdin(`${command}\r`);
+  }, [activeTabId, buildOmpCommand, ensureAgentInstalled, markAgentLaunch, sendStdin, status, tabs, layoutWsId]);
 
   const handleNewClaudeFromSessionList = useCallback(async () => {
     if (!await ensureAgentInstalled('claude')) return;
@@ -1372,6 +1411,22 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   removePendingMessageRef={removePendingMessageRef}
                 />
               )}
+              {isOmp && activeTab && !showInitialLoading && activeTabId && (
+                <OmpPanel
+                  key={activeTab.sessionName}
+                  tabId={activeTabId}
+                  sessionName={activeTab.sessionName}
+                  cwd={activeTabCwd || activeTab.cwd}
+                  onClose={() => handleSwitchPanelType('terminal')}
+                  onNewSession={handleNewOmpSession}
+                  onRestart={handleRestartPiSession}
+                  trustPrompt={trustPrompt}
+                  onTrustResponse={onTrustResponse}
+                  scrollToBottomRef={scrollToBottomRef}
+                  addPendingMessageRef={addPendingMessageRef}
+                  removePendingMessageRef={removePendingMessageRef}
+                />
+              )}
               {isAgentPanel && !showInitialLoading && agentInputVisible && (
                 <WebInputBar
                   key={activeTabId}
@@ -1379,7 +1434,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   wsId={layoutWsId ?? undefined}
                   sessionName={activeTab?.sessionName}
                   agentSessionId={claudeSessionId}
-                  provider={isCodex ? 'codex' : isPi ? 'pi' : 'claude'}
+                  provider={isCodex ? 'codex' : (isPi || isOmp) ? 'pi' : 'claude'}
                   cliState={claudeCliState}
                   sendStdin={sendWebStdin}
                   terminalWsConnected={status === 'connected'}
@@ -1387,7 +1442,7 @@ const PaneContainer = memo(({ paneId, paneNumber }: IPaneContainerProps) => {
                   focusTerminal={focus}
                   focusInputRef={focusInputRef}
                   setInputValueRef={setInputValueRef}
-                  onRestartSession={isCodex ? handleRestartCodexSession : isPi ? handleRestartPiSession : handleRestartClaudeSession}
+                  onRestartSession={isCodex ? handleRestartCodexSession : (isPi || isOmp) ? handleRestartPiSession : handleRestartClaudeSession}
                   onSend={handleScrollToBottom}
                   onOptimisticSend={handleOptimisticSend}
                   onAddPendingMessage={handleAddPendingMessage}

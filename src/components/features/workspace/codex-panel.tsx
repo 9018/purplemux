@@ -11,6 +11,7 @@ import useTabStore, { selectSessionView } from '@/hooks/use-tab-store';
 import useTimeline from '@/hooks/use-timeline';
 import { useCodexSessions } from '@/hooks/use-codex-sessions';
 import { usePiSessions } from '@/hooks/use-pi-sessions';
+import { useOmpSessions } from '@/hooks/use-omp-sessions';
 import { useSessionMetaCompute } from '@/hooks/use-session-meta';
 import CodexBootProgress from '@/components/features/workspace/codex-boot-progress';
 import CodexUpdatePromptCard from '@/components/features/workspace/codex-update-prompt-card';
@@ -25,7 +26,7 @@ import type { ITrustPromptInfo, TTrustAnswer } from '@/lib/trust-prompt-detector
 const CODEX_BOOT_CHECK_INTERVAL_MS = 800;
 
 interface ICodexPanelProps {
-  provider?: 'codex' | 'pi';
+  provider?: 'codex' | 'pi' | 'omp';
   tabId: string;
   sessionName: string;
   cwd?: string;
@@ -67,7 +68,7 @@ const CodexPanel = ({
   const compactingSince = useTabStore((s) => s.tabs[tabId]?.compactingSince ?? null);
   const view = useTabStore((s) => selectSessionView(s.tabs, tabId));
   const agentSessionId = useTabStore((s) => s.tabs[tabId]?.agentSessionId ?? null);
-  const isPi = provider === 'pi';
+  const isPi = provider !== 'codex';
   const cachedSessionMeta = useTabStore((s) => s.tabs[tabId]?.sessionMetaCache ?? null);
   const tabAgentSummary = useTabStore((s) => s.tabs[tabId]?.agentSummary ?? null);
   const tabLastUserMessage = useTabStore((s) => s.tabs[tabId]?.lastUserMessage ?? null);
@@ -118,7 +119,7 @@ const CodexPanel = ({
   } = useTimeline({
     sessionName,
     agentSessionId,
-    panelType: isPi ? 'pi-cli' : 'codex-cli',
+    panelType: provider === 'omp' ? 'omp-cli' : isPi ? 'pi-cli' : 'codex-cli',
     enabled: !!sessionName,
     resumeCallbacks: {
       onResumeStarted: handleResumeStarted,
@@ -146,12 +147,16 @@ const CodexPanel = ({
     cwd,
     provider === 'pi' && !!cwd && view === 'session-list' && agentProcess !== true,
   );
+  const ompSessionData = useOmpSessions(
+    cwd,
+    provider === 'omp' && !!cwd && view === 'session-list' && agentProcess !== true,
+  );
   const {
     sessions: codexSessions,
     isLoading: isCodexSessionListLoading,
     error: codexSessionListError,
     refresh: refetchCodexSessions,
-  } = isPi ? piSessionData : codexSessionData;
+  } = provider === 'omp' ? ompSessionData : isPi ? piSessionData : codexSessionData;
 
   useEffect(() => {
     if (addPendingMessageRef) addPendingMessageRef.current = addPendingUserMessage;
@@ -200,7 +205,7 @@ const CodexPanel = ({
         const res = await fetch(`/api/check-agent?session=${sessionName}`);
         if (!res.ok) return;
         const data = await res.json() as { running?: boolean; providerPanelType?: unknown; checkedAt?: number };
-        if (stopped || data.running !== true || data.providerPanelType !== (isPi ? 'pi-cli' : 'codex-cli')) return;
+        if (stopped || data.running !== true || data.providerPanelType !== (provider === 'omp' ? 'omp-cli' : isPi ? 'pi-cli' : 'codex-cli')) return;
         useTabStore.getState().setAgentProcess(
           tabId,
           true,

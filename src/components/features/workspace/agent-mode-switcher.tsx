@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { TPanelType } from '@/types/terminal';
 
 type TModeButton = {
-  type: Extract<TPanelType, 'terminal' | 'claude-code' | 'codex-cli' | 'pi-cli'>;
+  type: Extract<TPanelType, 'terminal' | 'claude-code' | 'codex-cli' | 'pi-cli' | 'omp-cli'>;
   label: string;
   startAction?: boolean;
 };
@@ -24,7 +24,7 @@ const getButtonLabel = (mode: TModeButton) =>
   mode.startAction ? `Start ${mode.label}` : mode.label;
 
 const getAgentLabel = (panelType: TPanelType): string => {
-  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli') return 'Chat';
+  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli' || panelType === 'omp-cli') return 'Chat';
   return 'Terminal';
 };
 
@@ -34,18 +34,20 @@ const processMatchesAgent = (panelType: TPanelType | undefined, process: string 
   if (panelType === 'claude-code') return normalized === 'claude';
   if (panelType === 'codex-cli') return normalized === 'codex';
   if (panelType === 'pi-cli') return normalized === 'pi';
+  if (panelType === 'omp-cli') return normalized === 'omp';
   return false;
 };
 
-const providerForPanelType = (panelType: TPanelType): 'claude' | 'codex' | 'pi' | undefined => {
+const providerForPanelType = (panelType: TPanelType): 'claude' | 'codex' | 'pi' | 'omp' | undefined => {
   if (panelType === 'claude-code') return 'claude';
   if (panelType === 'codex-cli') return 'codex';
   if (panelType === 'pi-cli') return 'pi';
+  if (panelType === 'omp-cli') return 'omp';
   return undefined;
 };
 
 const getCurrentMode = (panelType: TPanelType): TModeButton => {
-  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli') {
+  if (panelType === 'claude-code' || panelType === 'codex-cli' || panelType === 'pi-cli' || panelType === 'omp-cli') {
     return { type: panelType, label: getAgentLabel(panelType) };
   }
   return { type: 'terminal', label: 'Terminal' };

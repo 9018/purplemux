@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import type { ICodexSessionEntry } from '@/lib/codex-session-list';
 
 interface ICodexSessionListViewProps {
-  provider?: 'codex' | 'pi';
+  provider?: 'codex' | 'pi' | 'omp';
   sessions: ICodexSessionEntry[];
   isLoading: boolean;
   error: string | null;
@@ -160,7 +160,7 @@ const CodexSessionListView = ({
   }, [onRefresh]);
 
   const isResumeInProgress = !!resumingSessionId;
-  const isPi = provider === 'pi';
+  const isPi = provider !== 'codex';
 
   return (
     <div className={cn('flex h-full flex-col', className)}>

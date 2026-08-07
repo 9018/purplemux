@@ -23,6 +23,7 @@ const DEFAULT_SESSIONS_ROOT = path.join(PI_AGENT_DIR, 'sessions');
 const SETTINGS_PATH = path.join(PI_AGENT_DIR, 'settings.json');
 const PID_POLL_INTERVAL = 10_000;
 const SESSION_PROCESS_GRACE_MS = 60_000;
+const SESSION_PROCESS_LEAD_MS = 30_000;
 
 const NOT_RUNNING: ISessionInfo = {
   status: 'not-running',
@@ -65,25 +66,39 @@ const readFirstLine = async (jsonlPath: string): Promise<string | null> => {
 };
 
 const readPiSessionMeta = async (jsonlPath: string): Promise<IPiSessionMeta | null> => {
-  const firstLine = await readFirstLine(jsonlPath);
-  if (!firstLine) return null;
+  // omp/pi session files may open with a "title" record before the session
+  // record; scan the first N lines instead of assuming line 1 is the session.
+  const MAX_SCAN_LINES = 40;
+  const stream = createReadStream(jsonlPath, { encoding: 'utf-8' });
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  let scanned = 0;
   try {
-    const parsed = JSON.parse(firstLine) as {
-      type?: string;
-      id?: string;
-      cwd?: string;
-      timestamp?: string | number;
-    };
-    if (parsed.type !== 'session' || typeof parsed.id !== 'string' || !parsed.id) return null;
-    return {
-      sessionId: parsed.id,
-      jsonlPath,
-      cwd: typeof parsed.cwd === 'string' ? parsed.cwd : null,
-      startedAt: parseTimestamp(parsed.timestamp),
-      mtimeMs: null,
-    };
-  } catch {
+    for await (const line of rl) {
+      if (++scanned > MAX_SCAN_LINES) break;
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line) as {
+          type?: string;
+          id?: string;
+          cwd?: string;
+          timestamp?: string | number;
+        };
+        if (parsed.type !== 'session' || typeof parsed.id !== 'string' || !parsed.id) continue;
+        return {
+          sessionId: parsed.id,
+          jsonlPath,
+          cwd: typeof parsed.cwd === 'string' ? parsed.cwd : null,
+          startedAt: parseTimestamp(parsed.timestamp),
+          mtimeMs: null,
+        };
+      } catch {
+        continue;
+      }
+    }
     return null;
+  } finally {
+    rl.close();
+    stream.destroy();
   }
 };
 
@@ -159,7 +174,29 @@ export const findLatestPiSessionForCwd = async (
     const meta = await readPiSessionMeta(candidate.jsonlPath);
     if (meta?.cwd === cwd) return { ...meta, mtimeMs: candidate.mtimeMs };
   }
+  // omp sessions keep their launch-time cwd in the meta; when the live process
+  // has cd'd elsewhere, fall back to the newest session in the same root.
+  if (options.sessionsRoot && candidates[0]) {
+    const meta = await readPiSessionMeta(candidates[0].jsonlPath);
+    if (meta) return { ...meta, mtimeMs: candidates[0].mtimeMs };
+  }
   return null;
+};
+
+export const findLatestSessionInRoot = async (root: string): Promise<IPiSessionMeta | null> => {
+  const files = await listJsonlFiles(root);
+  let best: { meta: IPiSessionMeta; mtimeMs: number } | null = null;
+  for (const jsonlPath of files) {
+    try {
+      const meta = await readPiSessionMeta(jsonlPath);
+      if (!meta) continue;
+      const stat = await fs.stat(jsonlPath);
+      if (!best || stat.mtimeMs > best.mtimeMs) best = { meta, mtimeMs: stat.mtimeMs };
+    } catch {
+      // skip unreadable session files
+    }
+  }
+  return best ? { ...best.meta, mtimeMs: best.mtimeMs } : null;
 };
 
 export const findPiSessionById = async (
@@ -184,33 +221,66 @@ const collectDescendants = async (panePid: number, preloaded?: number[]): Promis
 const matchesPiArgs = (args: string): boolean => {
   const normalized = args.toLowerCase();
   return /(?:^|\s|\/)pi(?:\s|$)/.test(normalized)
-    || normalized.includes('pi-coding-agent')
-    || normalized.includes('@mariozechner/pi-coding-agent');
+    || normalized.includes('@mariozechner/pi-coding-agent')
+    || (normalized.includes('pi-coding-agent') && !normalized.includes('oh-my-pi'));
 };
 
+export const matchesOmpArgs = (args: string): boolean => {
+  const normalized = args.toLowerCase();
+  return /(?:^|\s|\/)omp(?:\s|$)/.test(normalized)
+    || normalized.includes('oh-my-pi')
+    || normalized.includes('@oh-my-pi/pi-coding-agent');
+};
+
+type TAgentArgsMatcher = (args: string) => boolean;
+
 const extractSessionArgument = (args: string): string | null =>
-  args.match(/(?:^|\s)--session(?:=|\s+)["']?([^\s"']+)/)?.[1] ?? null;
+  args.match(/(?:^|\s)(?:--session|--resume)(?:=|\s+)["']?([^\s"']+)/)?.[1] ?? null;
 
 const findPiProcess = async (
   pids: number[],
+  matches = matchesPiArgs as TAgentArgsMatcher,
 ): Promise<{ pid: number; cwd: string | null; args: string } | null> => {
   for (const pid of pids) {
     const args = await getProcessArgs(pid);
-    if (!args || !matchesPiArgs(args)) continue;
+    if (!args || !matches(args)) continue;
     return { pid, cwd: await getProcessCwd(pid), args };
   }
   return null;
 };
 
+const findCwdSessionCandidates = async (cwd: string, root: string): Promise<IPiSessionMeta[]> => {
+  const metas: { meta: IPiSessionMeta; mtimeMs: number }[] = [];
+  for (const jsonlPath of await listJsonlFiles(root)) {
+    try {
+      const meta = await readPiSessionMeta(jsonlPath);
+      if (!meta || meta.cwd !== cwd) continue;
+      const stat = await fs.stat(jsonlPath);
+      metas.push({ meta, mtimeMs: stat.mtimeMs });
+    } catch {
+      // skip unreadable session files
+    }
+  }
+  metas.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return metas.map((m) => ({ ...m.meta, mtimeMs: m.mtimeMs }));
+};
+
 const isLikelySessionForProcess = async (pid: number, meta: IPiSessionMeta): Promise<boolean> => {
   if (meta.startedAt === null) return false;
   const processStartedAt = await getProcessStartTimeMs(pid, { timeoutMs: 1_000 });
-  return !processStartedAt || meta.startedAt >= processStartedAt - SESSION_PROCESS_GRACE_MS;
+  if (!processStartedAt) return true;
+  // A fresh launch writes its session file right around process start. A
+  // session created significantly *after* the process started belongs to a
+  // different process (e.g. another tab on the same cwd) — reject it so
+  // per-tab detection doesn't leak across shared workspaces.
+  if (meta.startedAt > processStartedAt + SESSION_PROCESS_LEAD_MS) return false;
+  return meta.startedAt >= processStartedAt - SESSION_PROCESS_GRACE_MS;
 };
 
 const runningInfo = (
   processInfo: { pid: number; cwd: string | null },
   meta?: IPiSessionMeta | null,
+  explicit = false,
 ): ISessionInfo => ({
   status: 'running',
   sessionId: meta?.sessionId ?? null,
@@ -218,44 +288,52 @@ const runningInfo = (
   pid: processInfo.pid,
   startedAt: meta?.startedAt ?? null,
   cwd: meta?.cwd ?? processInfo.cwd,
+  explicit,
 });
 
-export const isPiRunning = async (panePid: number, preloadedChildPids?: number[]): Promise<boolean> => {
+export const isPiRunning = async (panePid: number, preloadedChildPids?: number[], matches?: TAgentArgsMatcher): Promise<boolean> => {
   const descendants = await collectDescendants(panePid, preloadedChildPids);
-  return (await findPiProcess(descendants)) !== null;
+  return (await findPiProcess(descendants, matches)) !== null;
 };
 
 export const detectActiveSession = async (
   panePid: number,
   preloadedChildPids?: number[],
   options: IAgentSessionDetectionOptions = {},
+  matches?: TAgentArgsMatcher,
 ): Promise<ISessionInfo> => {
   try {
-    await fs.access(PI_AGENT_DIR);
+    await fs.access(options.agentDir ?? PI_AGENT_DIR);
   } catch {
     return { ...NOT_RUNNING, status: 'not-initialized' };
   }
 
-  const found = await findPiProcess(await collectDescendants(panePid, preloadedChildPids));
+  const found = await findPiProcess(await collectDescendants(panePid, preloadedChildPids), matches);
   if (!found) return NOT_RUNNING;
 
   const sessionArg = extractSessionArgument(found.args);
   if (sessionArg) {
-    const byId = await findPiSessionById(sessionArg);
-    if (byId) return runningInfo(found, byId);
+    const byId = await findPiSessionById(sessionArg, { sessionsRoot: options.sessionsRoot });
+    if (byId) return runningInfo(found, byId, true);
     try {
       const explicitPath = path.resolve(found.cwd ?? process.cwd(), sessionArg);
-      const sessionsRoot = await resolvePiSessionsRoot();
+      const sessionsRoot = options.sessionsRoot ?? await resolvePiSessionsRoot();
       const byPath = isWithinRoot(explicitPath, sessionsRoot) ? await readPiSessionMeta(explicitPath) : null;
-      if (byPath) return runningInfo(found, await withMtime(byPath));
+      if (byPath) return runningInfo(found, await withMtime(byPath), true);
     } catch {
       // Fall through to cwd discovery.
     }
   }
 
   if (found.cwd && (options.allowCwdFallback || !sessionArg)) {
-    const latest = await findLatestPiSessionForCwd(found.cwd);
-    if (latest && await isLikelySessionForProcess(found.pid, latest)) return runningInfo(found, latest);
+    const root = options.sessionsRoot ?? await resolvePiSessionsRoot();
+    // Several tabs may share the same cwd. Walk the cwd's sessions from newest
+    // to oldest and pick the first one whose start time matches this process's
+    // start window, so each tab lands on its own session instead of always the
+    // newest (or the first-opened) one.
+    for (const cand of await findCwdSessionCandidates(found.cwd, root)) {
+      if (await isLikelySessionForProcess(found.pid, cand)) return runningInfo(found, cand, false);
+    }
   }
   return runningInfo(found);
 };
@@ -281,7 +359,11 @@ export const watchSessionsDir = (
   const poll = async () => {
     if (stopped) return;
     if (currentPid && !await isProcessRunning(currentPid)) currentPid = null;
-    const info = await detectActiveSession(panePid, undefined, { allowCwdFallback: true });
+    const info = await detectActiveSession(panePid, undefined, {
+      allowCwdFallback: true,
+      sessionsRoot: options.sessionsRoot,
+      agentDir: options.agentDir,
+    }, options.matches);
     currentPid = info.pid;
     const key = `${info.status}:${info.pid ?? ''}:${info.sessionId ?? ''}:${info.jsonlPath ?? ''}`;
     if (key !== previousKey) {

@@ -10,7 +10,7 @@ interface ITerminalKeyBarVisibilityOptions {
   terminalCollapsed: boolean;
 }
 
-const AGENT_PANEL_TYPES = new Set<TPanelType>(['claude-code', 'codex-cli', 'pi-cli']);
+const AGENT_PANEL_TYPES = new Set<TPanelType>(['claude-code', 'codex-cli', 'pi-cli', 'omp-cli']);
 
 export const shouldShowTerminalKeyBar = ({
   panelType,

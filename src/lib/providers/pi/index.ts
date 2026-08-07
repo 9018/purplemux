@@ -56,7 +56,10 @@ export const piProvider: IAgentProvider = {
   displayName: 'Pi',
   panelType: 'pi-cli',
   matchesProcess: (commandName, args) => commandName === 'pi'
-    || (commandName === 'node' && Boolean(args?.some((arg) => arg.includes('pi-coding-agent') && arg.endsWith('/cli.js')))),
+    || (commandName === 'node' && Boolean(args?.some((arg) => {
+      const lower = String(arg).toLowerCase();
+      return !lower.includes('oh-my-pi') && lower.includes('pi-coding-agent') && lower.endsWith('/cli.js');
+    }))),
   isValidSessionId: isValidPiSessionId,
   detectActiveSession,
   isAgentRunning: isPiRunning,

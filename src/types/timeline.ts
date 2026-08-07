@@ -11,6 +11,8 @@ export interface ISessionInfo {
   pid: number | null;
   startedAt: number | null;
   cwd: string | null;
+  /** True when the session was resolved from the process itself (e.g. --session flag), not guessed from cwd. */
+  explicit?: boolean;
 }
 
 export type TTaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';

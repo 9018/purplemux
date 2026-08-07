@@ -25,7 +25,7 @@ interface IUseTimelineOptions {
   sessionName: string;
   agentSessionId?: string | null;
   claudeSessionId?: string | null;
-  panelType?: 'claude-code' | 'codex-cli' | 'pi-cli';
+  panelType?: 'claude-code' | 'codex-cli' | 'pi-cli' | 'omp-cli';
   enabled: boolean;
   resumeCallbacks?: IResumeCallbacks;
   onSync?: (state: ITimelineSyncState) => void;
