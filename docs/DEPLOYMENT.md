@@ -198,6 +198,31 @@ systemctl --user restart purplemux-8022
 If you use a git worktree like the reference host (e.g. `source/`), the
 service unit already points at it; keep `WorkingDirectory` in sync.
 
+### Ready-to-use update prompt (for agents)
+
+Paste the following into an agent session to update an already-deployed
+machine. Repository: `git@github.com:9018/purplemux.git`.
+
+```
+【任务】部署本机 purplemux 到最新 commit，并保持服务可用。
+仓库：git@github.com:9018/purplemux.git
+
+1. cd <repo> && git pull（如需要 rebase/ff 以外的操作，先展示方案让我决策，不要自作主张）
+2. pnpm install（依赖有变化时必需，否则可略）
+3. pnpm build —— 纪律：
+   - 必须在 tsup 之前确认 npx tsc --noEmit 无错误
+   - tsup config 是 clean:true：tsup 失败会清空 dist/ → 8022 崩溃
+   - 完成后检查 dist/server.js 存在且 mtime 是刚生成的
+4. 同步扩展：检查 ~/.purplemux/pi-extension.ts 与 omp-extension.ts 是否仍与
+   新代码兼容（它们不在 git 仓库里，按本地最新版本保留）
+5. systemctl --user restart purplemux-8022，等 4 秒
+6. 验证三连：systemctl is-active 为 active；curl http://127.0.0.1:8022/login
+   返回 200；/api/status WebSocket 收到 status:sync（至少一个 tab）
+7. 若第 3 步失败：不要重启服务（旧进程仍可用），先修编译再继续
+8. 汇报：新 commit hash（git rev-parse HEAD）、仓库地址与分支、build 结果、
+   服务状态、验证结果
+```
+
 ---
 
 ## 8. Diagnostics
