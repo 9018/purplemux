@@ -22,6 +22,8 @@ Open [http://localhost:8022](http://localhost:8022) in your browser. Done.
 
 Prefer a native app? Grab the macOS Electron build from the [latest release](https://github.com/subicura/purplemux/releases/latest) (`.dmg` for Apple Silicon & Intel).
 
+Deploying from source (agent-friendly guide): see [DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Why purplemux
 
 - **Multi-session dashboard** — See working/needs-input status for every Claude Code and Codex session at a glance
