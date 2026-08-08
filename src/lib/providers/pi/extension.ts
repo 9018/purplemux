@@ -66,6 +66,7 @@ const send = async (event: string, ctx: any, details: Record<string, unknown> = 
 
 export default function (pi: any) {
   pi.on("session_start", async (event: any, ctx: any) => send("session_start", ctx, { reason: event.reason }));
+  pi.on("session_before_switch", async (event: any, ctx: any) => send("session_before_switch", ctx, { reason: event.reason, targetSessionFile: event.targetSessionFile }));
   pi.on("session_info_changed", async (event: any, ctx: any) => send("session_info_changed", ctx, { name: compact(event.name, 200) }));
   pi.on("input", async (event: any, ctx: any) => send("input", ctx, { text: compact(event.text, 4000), source: event.source }));
   pi.on("agent_start", async (_event: any, ctx: any) => send("agent_start", ctx));

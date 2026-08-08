@@ -9,7 +9,12 @@ const PURPLEMUX_DIR = path.join(os.homedir(), '.purplemux');
 // same ~/.pi/agent/sessions directory). Only the reported provider identity
 // differs so purplemux can route status hooks to the dedicated omp provider.
 export const OMP_EXTENSION_PATH = path.join(PURPLEMUX_DIR, 'omp-extension.ts');
-export const OMP_EXTENSION_SOURCE = PI_EXTENSION_SOURCE.replaceAll('provider=pi', 'provider=omp');
+export const OMP_EXTENSION_SOURCE = PI_EXTENSION_SOURCE
+  // OMP is a pi fork but emits `agent_end` (no `agent_settled`); we still send
+  // the `agent_settled` event name upstream so the server stop translation
+  // keeps working unchanged.
+  .replaceAll('provider=pi', 'provider=omp')
+  .replace('pi.on("agent_settled",', 'pi.on("agent_end",');
 
 export const ensureOmpExtension = async (): Promise<string> => {
   await fs.mkdir(PURPLEMUX_DIR, { recursive: true, mode: 0o700 });
